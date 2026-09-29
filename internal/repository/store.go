@@ -179,12 +179,64 @@ func (s *Store) SeedData() {
 		UpdatedAt:    time.Now(),
 	}
 
+	uApexBuyer := domain.User{
+		ID:           "user_buyer_apex",
+		Email:        "procurement@apexauto.in",
+		Password:     "Apex@Shield2026",
+		FullName:     "Vikram Malhotra",
+		BusinessName: "Apex Auto Components Pvt Ltd",
+		GST:          "27AAACA1234A1Z5",
+		PAN:          "AAACA1234A",
+		Mobile:       "9820123456",
+		City:         "Pune",
+		Role:         domain.RoleBuyer,
+		Verified:     true,
+		IsVerified:   true,
+		CreatedAt:    time.Now().Add(-45 * 24 * time.Hour),
+		UpdatedAt:    time.Now(),
+	}
+	uBharatSupplier := domain.User{
+		ID:           "user_supplier_bharat",
+		Email:        "sales@bharatcastings.com",
+		Password:     "Bharat@Shield2026",
+		FullName:     "Rajesh Singhania",
+		BusinessName: "Bharat Precision Castings Ltd",
+		GST:          "24AABCB5678B1Z2",
+		PAN:          "AABCB5678B",
+		Mobile:       "9898123456",
+		City:         "Vadodara",
+		Role:         domain.RoleSupplier,
+		Verified:     true,
+		IsVerified:   true,
+		CreatedAt:    time.Now().Add(-60 * 24 * time.Hour),
+		UpdatedAt:    time.Now(),
+	}
+	uCourtAdmin := domain.User{
+		ID:           "user_admin_court",
+		Email:        "court@tradeshield.in",
+		Password:     "Arbiter@Shield2026",
+		FullName:     "Justice (Retd.) K. N. Verma",
+		BusinessName: "TradeShield Neutral Arbitration Panel",
+		GST:          "07AAACT0001A1Z9",
+		PAN:          "AAACT0001A",
+		Mobile:       "9811000001",
+		City:         "New Delhi",
+		Role:         domain.RoleAdmin,
+		Verified:     true,
+		IsVerified:   true,
+		CreatedAt:    time.Now().Add(-90 * 24 * time.Hour),
+		UpdatedAt:    time.Now(),
+	}
+
 	s.Users[uBuyer1.ID] = uBuyer1
 	s.Users[uBuyer2.ID] = uBuyer2
 	s.Users[uBuyer3.ID] = uBuyer3
+	s.Users[uApexBuyer.ID] = uApexBuyer
 	s.Users[uSupplier1.ID] = uSupplier1
 	s.Users[uSupplier2.ID] = uSupplier2
+	s.Users[uBharatSupplier.ID] = uBharatSupplier
 	s.Users[uAdmin.ID] = uAdmin
+	s.Users[uCourtAdmin.ID] = uCourtAdmin
 
 	// 3. Seed Proposals
 	now := time.Now()
