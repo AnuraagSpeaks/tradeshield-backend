@@ -77,7 +77,7 @@ func (p *PostgresStore) migrate() error {
 		supplier_id VARCHAR(100),
 		supplier_name VARCHAR(255),
 		amount NUMERIC(15,2),
-		currency VARCHAR(10) DEFAULT INR,
+		currency VARCHAR(10) DEFAULT 'INR',
 		terms VARCHAR(50),
 		delivery_timeline VARCHAR(100),
 		notes TEXT,
@@ -101,7 +101,7 @@ func (p *PostgresStore) migrate() error {
 		supplier_org_id VARCHAR(100),
 		supplier_org_name VARCHAR(255),
 		total_amount NUMERIC(15,2),
-		currency VARCHAR(10) DEFAULT INR,
+		currency VARCHAR(10) DEFAULT 'INR',
 		platform_fee_percent NUMERIC(5,2),
 		platform_fee_amount NUMERIC(15,2),
 		escrow_virtual_account VARCHAR(100),
@@ -148,7 +148,7 @@ func (p *PostgresStore) migrate() error {
 		email VARCHAR(255),
 		phone VARCHAR(50),
 		message TEXT,
-		status VARCHAR(50) DEFAULT open,
+		status VARCHAR(50) DEFAULT 'open',
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 	);
 	`
