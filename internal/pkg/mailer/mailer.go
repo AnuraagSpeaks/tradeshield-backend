@@ -54,7 +54,7 @@ func InitMailer() {
 	}
 	alert := os.Getenv("ALERT_EMAIL")
 	if alert == "" {
-		alert = "anuragmishra.ac.in@gmail.com"
+		alert = "support@payshieldx.in"
 	}
 
 	enabled := resendKey != "" || (host != "" && user != "" && pass != "")
