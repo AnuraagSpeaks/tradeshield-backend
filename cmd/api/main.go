@@ -35,7 +35,13 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	h := handler.NewHandler(repository.DB)
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"ok","message":"PayShieldX Trade Protection Backend API is online","health_check":"/api/v1/health"}`))
+	})
+	r.Head("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
