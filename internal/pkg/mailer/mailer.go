@@ -1,16 +1,22 @@
 package mailer
 
 import (
+	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"net/smtp"
 	"os"
 	"strings"
+	"time"
 	"tradeshield-backend/internal/domain"
 )
 
 type Config struct {
+	ResendAPIKey string
 	Host         string
 	Port         string
 	User         string
@@ -23,16 +29,24 @@ type Config struct {
 var MailerConfig Config
 
 func InitMailer() {
+	resendKey := os.Getenv("RESEND_API_KEY")
+	pass := os.Getenv("SMTP_PASS")
+	if resendKey == "" && strings.HasPrefix(pass, "re_") {
+		resendKey = pass
+	}
+
 	host := os.Getenv("SMTP_HOST")
 	port := os.Getenv("SMTP_PORT")
 	if port == "" {
 		port = "587"
 	}
 	user := os.Getenv("SMTP_USER")
-	pass := os.Getenv("SMTP_PASS")
+	
 	from := os.Getenv("FROM_EMAIL")
 	if from == "" {
-		if user != "" && strings.Contains(user, "@") {
+		if resendKey != "" {
+			from = "PayShieldX Desk <onboarding@resend.dev>"
+		} else if user != "" && strings.Contains(user, "@") {
 			from = user
 		} else {
 			from = "alerts@payshieldx.in"
@@ -43,22 +57,25 @@ func InitMailer() {
 		alert = "support@payshieldx.in"
 	}
 
-	enabled := host != "" && user != "" && pass != ""
+	enabled := resendKey != "" || (host != "" && user != "" && pass != "")
 
 	MailerConfig = Config{
-		Host:       host,
-		Port:       port,
-		User:       user,
-		Pass:       pass,
-		FromEmail:  from,
-		AlertEmail: alert,
-		Enabled:    enabled,
+		ResendAPIKey: resendKey,
+		Host:         host,
+		Port:         port,
+		User:         user,
+		Pass:         pass,
+		FromEmail:    from,
+		AlertEmail:   alert,
+		Enabled:      enabled,
 	}
 
-	if enabled {
-		log.Printf("📧 Email Mailer Initialized: sending alerts to %s via %s:%s", alert, host, port)
+	if resendKey != "" {
+		log.Printf("📧 Resend Mailer Initialized: sending alerts to %s via Resend API", alert)
+	} else if enabled {
+		log.Printf("📧 SMTP Mailer Initialized: sending alerts to %s via %s:%s", alert, host, port)
 	} else {
-		log.Println("ℹ️  SMTP not configured (set SMTP_HOST, SMTP_USER, SMTP_PASS in environment variables on Render to enable live email delivery)")
+		log.Println("ℹ️  Email delivery not active (set RESEND_API_KEY or SMTP variables on Render to enable live email delivery)")
 	}
 }
 
@@ -71,16 +88,11 @@ func SendSupportTicketNotification(t domain.SupportTicket) {
 		}
 
 		// 1. Send Alert Email to Admin / Support Team
-		subject := fmt.Sprintf("🛡️ New Support Ticket [%s]: %s from %s", t.ID, t.Name, t.Company)
-		body := fmt.Sprintf("From: %s\r\n"+
-			"To: %s\r\n"+
-			"Subject: %s\r\n"+
-			"MIME-Version: 1.0\r\n"+
-			"Content-Type: text/html; charset=UTF-8\r\n\r\n"+
-			`<!DOCTYPE html>
+		adminSubject := fmt.Sprintf("🛡️ New Support Ticket [%s]: %s from %s", t.ID, t.Name, t.Company)
+		adminHTML := fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; color: #1e293b; background-color: #f8fafc; padding: 20px;">
-  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
     <div style="background: #0f172a; padding: 20px; color: #ffffff;">
       <h2 style="margin: 0; font-size: 20px;">🛡️ PayShieldX Support Desk</h2>
       <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 12px;">New Inbound Support Inquiry Received</p>
@@ -120,9 +132,6 @@ func SendSupportTicketNotification(t domain.SupportTicket) {
   </div>
 </body>
 </html>`,
-			MailerConfig.FromEmail,
-			MailerConfig.AlertEmail,
-			subject,
 			t.ID,
 			t.Name,
 			t.Company,
@@ -133,25 +142,20 @@ func SendSupportTicketNotification(t domain.SupportTicket) {
 			t.Message,
 		)
 
-		err := sendRawEmail(MailerConfig.AlertEmail, []byte(body))
+		err := dispatchEmail(MailerConfig.AlertEmail, adminSubject, adminHTML)
 		if err != nil {
 			log.Printf("⚠️ Failed to dispatch admin alert email: %v", err)
 		} else {
-			log.Printf("✅ Admin notification email dispatched for ticket %s", t.ID)
+			log.Printf("✅ Admin notification email dispatched for ticket %s to %s", t.ID, MailerConfig.AlertEmail)
 		}
 
 		// 2. Send Auto-Acknowledgement to Customer
 		if t.Email != "" && strings.Contains(t.Email, "@") {
 			ackSubject := fmt.Sprintf("We received your support inquiry [%s] – PayShieldX Desk", t.ID)
-			ackBody := fmt.Sprintf("From: %s\r\n"+
-				"To: %s\r\n"+
-				"Subject: %s\r\n"+
-				"MIME-Version: 1.0\r\n"+
-				"Content-Type: text/html; charset=UTF-8\r\n\r\n"+
-				`<!DOCTYPE html>
+			ackHTML := fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; color: #1e293b; background-color: #f8fafc; padding: 20px;">
-  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
     <div style="background: #0f172a; padding: 20px; color: #ffffff;">
       <h2 style="margin: 0; font-size: 20px;">🛡️ PayShieldX Trade Protection</h2>
     </div>
@@ -171,15 +175,12 @@ func SendSupportTicketNotification(t domain.SupportTicket) {
   </div>
 </body>
 </html>`,
-				MailerConfig.FromEmail,
-				t.Email,
-				ackSubject,
 				t.Name,
 				t.Company,
 				t.ID,
 			)
 
-			err = sendRawEmail(t.Email, []byte(ackBody))
+			err = dispatchEmail(t.Email, ackSubject, ackHTML)
 			if err != nil {
 				log.Printf("⚠️ Failed to dispatch customer ack email: %v", err)
 			}
@@ -187,7 +188,61 @@ func SendSupportTicketNotification(t domain.SupportTicket) {
 	}()
 }
 
-func sendRawEmail(to string, msg []byte) error {
+func dispatchEmail(to string, subject string, htmlBody string) error {
+	// If Resend API Key is available, use Resend REST API
+	if MailerConfig.ResendAPIKey != "" {
+		return sendResendEmail(to, subject, htmlBody)
+	}
+
+	// Otherwise, fallback to SMTP
+	rawMsg := fmt.Sprintf("From: %s\r\n"+
+		"To: %s\r\n"+
+		"Subject: %s\r\n"+
+		"MIME-Version: 1.0\r\n"+
+		"Content-Type: text/html; charset=UTF-8\r\n\r\n"+
+		"%s",
+		MailerConfig.FromEmail,
+		to,
+		subject,
+		htmlBody,
+	)
+	return sendSMTPEmail(to, []byte(rawMsg))
+}
+
+func sendResendEmail(to string, subject string, htmlBody string) error {
+	payload := map[string]interface{}{
+		"from":    MailerConfig.FromEmail,
+		"to":      []string{to},
+		"subject": subject,
+		"html":    htmlBody,
+	}
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("POST", "https://api.resend.com/emails", bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+MailerConfig.ResendAPIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		respBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("resend API error (%d): %s", resp.StatusCode, string(respBytes))
+	}
+	return nil
+}
+
+func sendSMTPEmail(to string, msg []byte) error {
 	addr := fmt.Sprintf("%s:%s", MailerConfig.Host, MailerConfig.Port)
 	auth := smtp.PlainAuth("", MailerConfig.User, MailerConfig.Pass, MailerConfig.Host)
 
