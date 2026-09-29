@@ -62,6 +62,9 @@ func main() {
 		// 1. Auth & Directory
 		r.Post("/auth/login", h.Login)
 		r.Post("/auth/register", h.Register)
+		r.Post("/auth/send-otp", h.SendOTP)
+		r.Post("/auth/verify-otp", h.VerifyOTP)
+		r.Post("/auth/reset-password", h.ResetPassword)
 		r.Get("/directory", h.ListDirectory)
 
 		// 2. Escrow Metrics

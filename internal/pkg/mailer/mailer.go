@@ -188,6 +188,73 @@ func SendSupportTicketNotification(t domain.SupportTicket) {
 	}()
 }
 
+func SendOTP(toEmail string, otpCode string, purpose string) {
+	go func() {
+		if !MailerConfig.Enabled {
+			log.Printf("🔐 [OTP GENERATED] To: %s | Purpose: %s | Code: %s (Simulated - set RESEND_API_KEY to send live email)",
+				toEmail, purpose, otpCode)
+			return
+		}
+
+		isPasswordReset := purpose == "forgot_password" || purpose == "reset_password"
+		var subject string
+		var title string
+		var actionDesc string
+
+		if isPasswordReset {
+			subject = fmt.Sprintf("🔑 %s is your PayShieldX Password Reset Code", otpCode)
+			title = "Reset Your Password / Security PIN"
+			actionDesc = "You requested to reset your password. Use the verification code below to authorize your password update:"
+		} else {
+			subject = fmt.Sprintf("🔐 %s is your PayShieldX Escrow Pass Verification Code", otpCode)
+			title = "Verify Your Business Email"
+			actionDesc = "Welcome to PayShieldX B2B Escrow Network! Please enter the 6-digit verification code below to activate your digital escrow pass:"
+		}
+
+		html := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; background-color: #f8fafc; padding: 24px; margin: 0;">
+  <div style="max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);">
+    <div style="background: #0f172a; padding: 24px; color: #ffffff; text-align: center;">
+      <h2 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">🛡️ PayShieldX (TradeShield)</h2>
+      <p style="margin: 6px 0 0 0; color: #94a3b8; font-size: 13px;">Secure B2B Payment Protection & Nodal Escrow Protocol</p>
+    </div>
+    
+    <div style="padding: 32px 28px;">
+      <h3 style="margin: 0 0 12px 0; font-size: 18px; color: #0f172a; font-weight: 700;">%s</h3>
+      <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #475569;">%s</p>
+
+      <div style="background: #f1f5f9; border: 2px dashed #cbd5e1; border-radius: 12px; padding: 20px; text-align: center; margin: 24px 0;">
+        <span style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: #64748b; margin-bottom: 6px;">Your 6-Digit Verification Code</span>
+        <div style="font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: 900; letter-spacing: 8px; color: #0284c7;">%s</div>
+        <span style="display: block; font-size: 12px; color: #94a3b8; margin-top: 6px;">Valid for 10 minutes • Do not share with anyone</span>
+      </div>
+
+      <p style="font-size: 13px; line-height: 1.6; color: #64748b; margin-top: 24px;">
+        If you did not request this verification, please ignore this message or contact <a href="mailto:support@payshieldx.in" style="color: #2563eb;">support@payshieldx.in</a> immediately.
+      </p>
+    </div>
+
+    <div style="background: #f8fafc; padding: 16px 24px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center;">
+      TradeShield Technologies Pvt Ltd • RBI Regulated Escrow Trust Protocol
+    </div>
+  </div>
+</body>
+</html>`,
+			title,
+			actionDesc,
+			otpCode,
+		)
+
+		err := dispatchEmail(toEmail, subject, html)
+		if err != nil {
+			log.Printf("⚠️ Failed to dispatch OTP email to %s: %v", toEmail, err)
+		} else {
+			log.Printf("✅ OTP email [%s] successfully sent to %s", purpose, toEmail)
+		}
+	}()
+}
+
 func dispatchEmail(to string, subject string, htmlBody string) error {
 	// If Resend API Key is available, use Resend REST API
 	if MailerConfig.ResendAPIKey != "" {

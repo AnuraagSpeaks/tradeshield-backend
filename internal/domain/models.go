@@ -266,3 +266,10 @@ type EscrowVaultSummary struct {
 	PlatformFeeINR   float64 `json:"platform_fee_inr"`
 	ActiveDealsCount int     `json:"active_deals_count"`
 }
+
+type EmailOTP struct {
+	Email     string    `json:"email"`
+	OTP       string    `json:"otp"`
+	Purpose   string    `json:"purpose"`
+	ExpiresAt time.Time `json:"expires_at"`
+}

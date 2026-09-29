@@ -23,6 +23,7 @@ type Store struct {
 	LedgerAccts  map[string]domain.LedgerAccount
 	Journals     []domain.JournalEntry
 	Disputes     map[string]domain.Dispute
+	OTPs         map[string]domain.EmailOTP
 }
 
 var DB = NewStore()
@@ -42,6 +43,7 @@ func NewStore() *Store {
 		LedgerAccts:  make(map[string]domain.LedgerAccount),
 		Journals:     make([]domain.JournalEntry, 0),
 		Disputes:     make(map[string]domain.Dispute),
+		OTPs:         make(map[string]domain.EmailOTP),
 	}
 }
 
