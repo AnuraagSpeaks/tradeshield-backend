@@ -56,7 +56,7 @@ func main() {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{"status":"ok","service":"PayShieldX Trade Protection API","version":"2.4.0"}`))
+			w.Write([]byte(`{"status":"ok","service":"PayShieldX Trade Protection API","version":"2.4.1-autodeploy-test"}`))
 		})
 
 		// 1. Auth & Directory
