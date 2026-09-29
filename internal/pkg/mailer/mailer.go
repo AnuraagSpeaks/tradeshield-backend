@@ -50,13 +50,7 @@ func InitMailer() {
 	
 	from := os.Getenv("FROM_EMAIL")
 	if from == "" {
-		if resendKey != "" {
-			from = "PayShieldX Desk <onboarding@resend.dev>"
-		} else if user != "" && strings.Contains(user, "@") {
-			from = user
-		} else {
-			from = "alerts@payshieldx.in"
-		}
+		from = "PayShieldX Support <support@payshieldx.in>"
 	}
 	alert := os.Getenv("ALERT_EMAIL")
 	if alert == "" {
