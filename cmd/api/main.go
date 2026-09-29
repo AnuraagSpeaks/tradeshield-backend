@@ -18,23 +18,23 @@ import (
 
 func main() {
 	mailer.InitMailer()
+	
+	// 1. Seed demo accounts (Apex Buyer, Bharat Supplier, TradeShield Court Admin, etc.)
+	repository.DB.SeedData()
+
+	// 2. Load and overlay any existing users and proposals from PostgreSQL
 	pg := repository.InitPostgres()
 	if pg != nil {
 		pg.LoadAllIntoStore(repository.DB)
-	}
-	if len(repository.DB.Users) == 0 {
-		repository.DB.SeedData()
-		if pg != nil {
-			log.Println("📥 Syncing seed users, proposals, and contracts into PostgreSQL...")
-			for _, u := range repository.DB.Users {
-				_ = pg.SaveUser(u)
-			}
-			for _, pr := range repository.DB.Proposals {
-				_ = pg.SaveProposal(pr)
-			}
-			for _, c := range repository.DB.Contracts {
-				_ = pg.SaveContract(c)
-			}
+		log.Println("📥 Syncing all accounts, proposals, and contracts into PostgreSQL...")
+		for _, u := range repository.DB.Users {
+			_ = pg.SaveUser(u)
+		}
+		for _, pr := range repository.DB.Proposals {
+			_ = pg.SaveProposal(pr)
+		}
+		for _, c := range repository.DB.Contracts {
+			_ = pg.SaveContract(c)
 		}
 	}
 

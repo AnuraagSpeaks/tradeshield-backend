@@ -59,6 +59,7 @@ type User struct {
 	PasswordHash   string    `json:"-"`
 	Password       string    `json:"password,omitempty"`
 	FullName       string    `json:"full_name"`
+	ContactPerson  string    `json:"contact_person,omitempty"`
 	BusinessName   string    `json:"business_name"`
 	GST            string    `json:"gst"`
 	PAN            string    `json:"pan,omitempty"`
