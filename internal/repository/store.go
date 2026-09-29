@@ -447,7 +447,7 @@ func (s *Store) RecordDoubleEntry(contractID, milestoneID, ref, desc string, deb
 		},
 	}
 
-	s.Journals = append(s.Journals, domain.JournalEntry{
+	entry := domain.JournalEntry{
 		ID:          journalID,
 		ContractID:  contractID,
 		MilestoneID: milestoneID,
@@ -455,7 +455,12 @@ func (s *Store) RecordDoubleEntry(contractID, milestoneID, ref, desc string, deb
 		Description: desc,
 		CreatedAt:   time.Now(),
 		Postings:    postings,
-	})
+	}
+
+	s.Journals = append(s.Journals, entry)
+	if PG != nil {
+		PG.SaveJournal(entry)
+	}
 
 	return nil
 }

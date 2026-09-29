@@ -16,7 +16,13 @@ import (
 )
 
 func main() {
-	repository.DB.SeedData()
+	pg := repository.InitPostgres()
+	if pg != nil {
+		pg.LoadAllIntoStore(repository.DB)
+	}
+	if len(repository.DB.Users) == 0 {
+		repository.DB.SeedData()
+	}
 
 	r := chi.NewRouter()
 
@@ -42,6 +48,8 @@ func main() {
 	r.Head("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
+
+	h := handler.NewHandler(repository.DB)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {

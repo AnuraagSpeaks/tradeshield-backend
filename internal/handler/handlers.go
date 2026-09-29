@@ -92,6 +92,9 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	req.UpdatedAt = time.Now()
 
 	h.store.Users[req.ID] = req
+	if repository.PG != nil {
+		repository.PG.SaveUser(req)
+	}
 	t, _ := token.GenerateToken(req.ID, req.Email, req.Role, req.OrganizationID)
 
 	response.JSON(w, http.StatusCreated, map[string]interface{}{
@@ -227,6 +230,9 @@ func (h *Handler) CreateProposal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.store.Proposals[p.ID] = p
+	if repository.PG != nil {
+		repository.PG.SaveProposal(p)
+	}
 	response.JSON(w, http.StatusCreated, p, "Payment Confirmation Proposal created successfully")
 }
 
@@ -266,6 +272,9 @@ func (h *Handler) ApproveProposal(w http.ResponseWriter, r *http.Request) {
 
 	p.UpdatedAt = time.Now()
 	h.store.Proposals[id] = p
+	if repository.PG != nil {
+		repository.PG.SaveProposal(p)
+	}
 
 	response.JSON(w, http.StatusOK, p, "Proposal approved successfully")
 }
@@ -287,6 +296,9 @@ func (h *Handler) RequestModification(w http.ResponseWriter, r *http.Request) {
 	p.SupplierApproved = false
 	p.UpdatedAt = time.Now()
 	h.store.Proposals[id] = p
+	if repository.PG != nil {
+		repository.PG.SaveProposal(p)
+	}
 
 	response.JSON(w, http.StatusOK, p, "Modification request recorded")
 }
@@ -317,6 +329,9 @@ func (h *Handler) ShipProposal(w http.ResponseWriter, r *http.Request) {
 	p.ProofURL = req.ProofURL
 	p.UpdatedAt = time.Now()
 	h.store.Proposals[id] = p
+	if repository.PG != nil {
+		repository.PG.SaveProposal(p)
+	}
 
 	response.JSON(w, http.StatusOK, p, "Shipment details and LR submitted")
 }
@@ -335,6 +350,9 @@ func (h *Handler) ConfirmDeliveryProposal(w http.ResponseWriter, r *http.Request
 	p.PaymentStatus = "Payment Released"
 	p.UpdatedAt = time.Now()
 	h.store.Proposals[id] = p
+	if repository.PG != nil {
+		repository.PG.SaveProposal(p)
+	}
 	h.store.Unlock()
 
 	h.store.RecordDoubleEntry("", "", "PROPOSAL_PAYOUT", fmt.Sprintf("Released payout for proposal %s (%s)", p.ID, p.OrderID), "ESCROW_VAULT", "SELLER_PAYOUT", p.Amount)
@@ -451,6 +469,9 @@ func (h *Handler) CreateContract(w http.ResponseWriter, r *http.Request) {
 	h.store.Unlock()
 
 	c.Milestones = createdMilestones
+	if repository.PG != nil {
+		repository.PG.SaveContract(c)
+	}
 	h.store.RecordDoubleEntry(c.ID, "", "ESCROW_DEPOSIT", "Buyer funded escrow contract via Virtual Account", "BUYER_WALLET", "ESCROW_VAULT", c.TotalAmount)
 
 	response.JSON(w, http.StatusCreated, c, "Contract created and funded into Escrow Vault successfully")
@@ -668,6 +689,9 @@ func (h *Handler) RaiseDispute(w http.ResponseWriter, r *http.Request) {
 			h.store.Milestones[req.MilestoneID] = m
 		}
 	}
+	if repository.PG != nil {
+		repository.PG.SaveDispute(disp)
+	}
 	h.store.Unlock()
 
 	response.JSON(w, http.StatusCreated, disp, "Dispute registered and assigned to TradeShield Arbitration Panel")
@@ -705,6 +729,9 @@ func (h *Handler) ArbitrateDispute(w http.ResponseWriter, r *http.Request) {
 		disp.Status = domain.DisputeStatusResolvedReleased
 	}
 	h.store.Disputes[id] = disp
+	if repository.PG != nil {
+		repository.PG.SaveDispute(disp)
+	}
 
 	response.JSON(w, http.StatusOK, disp, "Arbitration verdict executed and recorded")
 }
@@ -748,6 +775,9 @@ func (h *Handler) SubmitSupportTicket(w http.ResponseWriter, r *http.Request) {
 
 	h.store.Lock()
 	h.store.Tickets[req.ID] = req
+	if repository.PG != nil {
+		repository.PG.SaveSupportTicket(req)
+	}
 	h.store.Unlock()
 
 	response.JSON(w, http.StatusCreated, req, "Support ticket logged. SLA response in 2 hours.")
