@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"tradeshield-backend/internal/domain"
+	"tradeshield-backend/internal/pkg/mailer"
 	"tradeshield-backend/internal/pkg/response"
 	"tradeshield-backend/internal/pkg/token"
 	"tradeshield-backend/internal/repository"
@@ -809,6 +810,8 @@ func (h *Handler) SubmitSupportTicket(w http.ResponseWriter, r *http.Request) {
 		repository.PG.SaveSupportTicket(req)
 	}
 	h.store.Unlock()
+
+	mailer.SendSupportTicketNotification(req)
 
 	response.JSON(w, http.StatusCreated, req, "Support ticket logged. SLA response in 2 hours.")
 }

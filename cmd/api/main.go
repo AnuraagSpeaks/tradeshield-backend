@@ -12,10 +12,12 @@ import (
 	"github.com/go-chi/cors"
 
 	"tradeshield-backend/internal/handler"
+	"tradeshield-backend/internal/pkg/mailer"
 	"tradeshield-backend/internal/repository"
 )
 
 func main() {
+	mailer.InitMailer()
 	pg := repository.InitPostgres()
 	if pg != nil {
 		pg.LoadAllIntoStore(repository.DB)

@@ -61,6 +61,7 @@ type User struct {
 	FullName       string    `json:"full_name"`
 	BusinessName   string    `json:"business_name"`
 	GST            string    `json:"gst"`
+	PAN            string    `json:"pan,omitempty"`
 	Mobile         string    `json:"mobile"`
 	City           string    `json:"city"`
 	Role           string    `json:"role"`
