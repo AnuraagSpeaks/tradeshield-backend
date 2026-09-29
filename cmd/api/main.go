@@ -24,6 +24,18 @@ func main() {
 	}
 	if len(repository.DB.Users) == 0 {
 		repository.DB.SeedData()
+		if pg != nil {
+			log.Println("📥 Syncing seed users, proposals, and contracts into PostgreSQL...")
+			for _, u := range repository.DB.Users {
+				_ = pg.SaveUser(u)
+			}
+			for _, pr := range repository.DB.Proposals {
+				_ = pg.SaveProposal(pr)
+			}
+			for _, c := range repository.DB.Contracts {
+				_ = pg.SaveContract(c)
+			}
+		}
 	}
 
 	r := chi.NewRouter()
