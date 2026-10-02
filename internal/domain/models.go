@@ -274,3 +274,125 @@ type EmailOTP struct {
 	Purpose   string    `json:"purpose"`
 	ExpiresAt time.Time `json:"expires_at"`
 }
+
+type KYCDocument struct {
+	Type        string    `json:"type"`
+	DocumentNo  string    `json:"document_no"`
+	URL         string    `json:"url"`
+	Status      string    `json:"status"` // Approved, Pending, Rejected
+	UploadedAt  time.Time `json:"uploaded_at"`
+	VerifiedAt  *time.Time `json:"verified_at,omitempty"`
+}
+
+type RefundRecord struct {
+	RefundID      string    `json:"refund_id"`
+	TransactionID string    `json:"transaction_id"`
+	Amount        float64   `json:"amount"`
+	Reason        string    `json:"reason"`
+	Status        string    `json:"status"`
+	UTRNumber     string    `json:"utr_number,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+type SettlementDetails struct {
+	AccountNumber  string `json:"account_number"`
+	BankName       string `json:"bank_name"`
+	IFSCCode       string `json:"ifsc_code"`
+	AccountHolder  string `json:"account_holder"`
+	IsPennyDropped bool   `json:"is_penny_dropped"`
+	PennyDropStatus string `json:"penny_drop_status"`
+	SettlementCycle string `json:"settlement_cycle"`
+}
+
+type BuyerRecord struct {
+	BuyerID                string         `json:"buyer_id"`
+	Name                   string         `json:"name"`
+	CompanyName            string         `json:"company_name"`
+	Mobile                 string         `json:"mobile"`
+	Email                  string         `json:"email"`
+	GSTIN                  string         `json:"gstin"`
+	PAN                    string         `json:"pan"`
+	KYCStatus              string         `json:"kyc_status"` // Approved, Pending, Rejected
+	CompletedTransactions  int            `json:"completed_transactions"`
+	Disputes               int            `json:"disputes"`
+	TotalTransactionValue  float64        `json:"total_transaction_value"`
+	RefundHistory          []RefundRecord `json:"refund_history"`
+	AccountStatus          string         `json:"account_status"` // Active, Suspended, Flagged
+	CreatedAt              time.Time      `json:"created_at"`
+}
+
+type SupplierRecord struct {
+	SupplierID            string            `json:"supplier_id"`
+	CompanyName           string            `json:"company_name"`
+	ContactPerson         string            `json:"contact_person"`
+	Mobile                string            `json:"mobile"`
+	Email                 string            `json:"email"`
+	GSTIN                 string            `json:"gstin"`
+	PAN                   string            `json:"pan"`
+	KYCDocuments          []KYCDocument     `json:"kyc_documents"`
+	VerificationStatus    string            `json:"verification_status"` // Approved, Pending, Rejected
+	SupplierPlan          string            `json:"supplier_plan"`       // Growth, Business, Enterprise
+	PlanExpiry            time.Time         `json:"plan_expiry"`
+	TotalProposals        int               `json:"total_proposals"`
+	AcceptedProposals     int               `json:"accepted_proposals"`
+	RejectedProposals     int               `json:"rejected_proposals"`
+	PendingProposals      int               `json:"pending_proposals"`
+	CompletedTransactions int               `json:"completed_transactions"`
+	Disputes              int               `json:"disputes"`
+	Refunds               float64           `json:"refunds"`
+	SettlementInfo        SettlementDetails `json:"settlement_info"`
+	AccountStatus         string            `json:"account_status"` // Active, Suspended, Under Review
+	CreatedAt             time.Time         `json:"created_at"`
+}
+
+type SettlementItem struct {
+	SettlementID string    `json:"settlement_id"`
+	SupplierID   string    `json:"supplier_id"`
+	SupplierName string    `json:"supplier_name"`
+	BankName     string    `json:"bank_name"`
+	AccountNo    string    `json:"account_no"`
+	IFSCCode     string    `json:"ifsc_code"`
+	Amount       float64   `json:"amount"`
+	DealRef      string    `json:"deal_ref"`
+	Status       string    `json:"status"` // PENDING, PROCESSING, SETTLED
+	UTRNumber    string    `json:"utr_number,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+type AdminBusinessHealthStats struct {
+	TotalBuyers            int     `json:"total_buyers"`
+	TotalSuppliers         int     `json:"total_suppliers"`
+	ActiveUsers            int     `json:"active_users"`
+	NewRegistrationsToday  int     `json:"new_registrations_today"`
+	NewRegistrationsWeek   int     `json:"new_registrations_week"`
+	NewRegistrationsMonth  int     `json:"new_registrations_month"`
+	KYCPending             int     `json:"kyc_pending"`
+	KYCApproved            int     `json:"kyc_approved"`
+	KYCRejected            int     `json:"kyc_rejected"`
+	TotalPaymentProposals  int     `json:"total_payment_proposals"`
+	PendingProposals       int     `json:"pending_proposals"`
+	ApprovedProposals      int     `json:"approved_proposals"`
+	DisputedTransactions   int     `json:"disputed_transactions"`
+	FailedTransactions     int     `json:"failed_transactions"`
+	PlatformRevenue        float64 `json:"platform_revenue"`
+	MembershipRevenue      float64 `json:"membership_revenue"`
+	RefundAmount           float64 `json:"refund_amount"`
+	PendingSettlements     float64 `json:"pending_settlements"`
+	TodayCollection        float64 `json:"today_collection"`
+	MonthlyRevenue         float64 `json:"monthly_revenue"`
+}
+
+type AdminFinanceStats struct {
+	MembershipRevenue       float64           `json:"membership_revenue"`
+	MembershipGrowth        float64           `json:"membership_growth"`
+	MembershipBusiness      float64           `json:"membership_business"`
+	MembershipEnterprise    float64           `json:"membership_enterprise"`
+	OtherRevenue            float64           `json:"other_revenue"`
+	TotalRevenue            float64           `json:"total_revenue"`
+	EscrowNodalBalance      float64           `json:"escrow_nodal_balance"`
+	PendingSettlementAmount float64           `json:"pending_settlement_amount"`
+	RefundsTotal            float64           `json:"refunds_total"`
+	TodayCollection         float64           `json:"today_collection"`
+	MonthlyRevenue          float64           `json:"monthly_revenue"`
+	PendingSettlements      []SettlementItem  `json:"pending_settlements"`
+}

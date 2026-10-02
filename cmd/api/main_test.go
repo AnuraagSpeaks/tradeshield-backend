@@ -58,6 +58,14 @@ func setupTestRouter() http.Handler {
 
 		r.Post("/mock/penny-drop", h.MockPennyDrop)
 		r.Get("/mock/gst-verify/{gstin}", h.MockGSTVerify)
+
+		// Admin routes
+		r.Get("/admin/stats", h.GetAdminStats)
+		r.Get("/admin/buyers", h.ListAdminBuyers)
+		r.Get("/admin/suppliers", h.ListAdminSuppliers)
+		r.Get("/admin/finance", h.GetAdminFinance)
+		r.Post("/admin/kyc/{userId}/verify", h.VerifyAdminKYC)
+		r.Post("/admin/settlements/{id}/payout", h.ProcessAdminSettlement)
 	})
 	return r
 }
@@ -248,3 +256,40 @@ func TestPennyDropSimulation(t *testing.T) {
 		t.Fatalf("Expected status 200, got %d", w.Code)
 	}
 }
+
+func TestAdminEndpoints(t *testing.T) {
+	r := setupTestRouter()
+
+	// 1. Stats
+	req := httptest.NewRequest("GET", "/api/v1/admin/stats", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected stats status 200, got %d", w.Code)
+	}
+
+	// 2. Buyers
+	req = httptest.NewRequest("GET", "/api/v1/admin/buyers", nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected buyers status 200, got %d", w.Code)
+	}
+
+	// 3. Suppliers
+	req = httptest.NewRequest("GET", "/api/v1/admin/suppliers", nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected suppliers status 200, got %d", w.Code)
+	}
+
+	// 4. Finance
+	req = httptest.NewRequest("GET", "/api/v1/admin/finance", nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected finance status 200, got %d", w.Code)
+	}
+}
+

@@ -120,6 +120,14 @@ func main() {
 		// 9. Live Verification APIs
 		r.Post("/mock/penny-drop", h.MockPennyDrop)
 		r.Get("/mock/gst-verify/{gstin}", h.MockGSTVerify)
+
+		// 10. Admin Executive & Owner Management APIs
+		r.Get("/admin/stats", h.GetAdminStats)
+		r.Get("/admin/buyers", h.ListAdminBuyers)
+		r.Get("/admin/suppliers", h.ListAdminSuppliers)
+		r.Get("/admin/finance", h.GetAdminFinance)
+		r.Post("/admin/kyc/{userId}/verify", h.VerifyAdminKYC)
+		r.Post("/admin/settlements/{id}/payout", h.ProcessAdminSettlement)
 	})
 
 	port := os.Getenv("PORT")
