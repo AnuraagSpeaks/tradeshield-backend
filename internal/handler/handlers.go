@@ -1048,15 +1048,114 @@ func (h *Handler) MockPennyDrop(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) MockGSTVerify(w http.ResponseWriter, r *http.Request) {
-	gstin := chi.URLParam(r, "gstin")
+	gstin := strings.TrimSpace(strings.ToUpper(chi.URLParam(r, "gstin")))
+	
+	stateMap := map[string]string{
+		"01": "Jammu & Kashmir",
+		"02": "Himachal Pradesh",
+		"03": "Punjab",
+		"04": "Chandigarh",
+		"05": "Uttarakhand",
+		"06": "Haryana",
+		"07": "Delhi NCR",
+		"08": "Rajasthan",
+		"09": "Uttar Pradesh",
+		"10": "Bihar",
+		"19": "West Bengal",
+		"20": "Jharkhand",
+		"21": "Odisha",
+		"22": "Chhattisgarh",
+		"23": "Madhya Pradesh",
+		"24": "Gujarat",
+		"27": "Maharashtra",
+		"29": "Karnataka",
+		"30": "Goa",
+		"32": "Kerala",
+		"33": "Tamil Nadu",
+		"36": "Telangana",
+		"37": "Andhra Pradesh",
+	}
+
+	stateCode := "07"
+	stateName := "Delhi NCR"
+	pan := "AAAAA1111A"
+	entityType := "Company"
+
+	if len(gstin) >= 2 {
+		sc := gstin[:2]
+		if name, ok := stateMap[sc]; ok {
+			stateCode = sc
+			stateName = name
+		}
+	}
+
+	if len(gstin) >= 12 {
+		pan = gstin[2:12]
+		if len(pan) >= 4 {
+			switch pan[3] {
+			case 'C':
+				entityType = "Private Limited Company"
+			case 'P':
+				entityType = "Proprietorship / Individual"
+			case 'F':
+				entityType = "Partnership / LLP"
+			case 'H':
+				entityType = "HUF"
+			case 'T':
+				entityType = "Trust"
+			default:
+				entityType = "Commercial Enterprise"
+			}
+		}
+	} else if len(gstin) == 10 {
+		pan = gstin
+	}
+
+	// Generate realistic legal name based on GSTIN / PAN prefix
+	prefix := "S.S."
+	if len(pan) >= 5 {
+		prefix = string(pan[0:3])
+	}
+
+	var legalName string
+	var tradeName string
+
+	if gstin == "20KBIPS8898M1ZG" || strings.Contains(gstin, "KBIPS") {
+		legalName = "S.S. ENTERPRISES"
+		tradeName = "S.S. Enterprises"
+	} else if strings.HasPrefix(gstin, "27AAACA") || strings.Contains(gstin, "AAACA") {
+		legalName = "APEX AUTO COMPONENTS PVT LTD"
+		tradeName = "Apex Auto"
+	} else if strings.HasPrefix(gstin, "24AABCB") || strings.Contains(gstin, "AABCB") {
+		legalName = "BHARAT PRECISION CASTINGS LTD"
+		tradeName = "Bharat Precision Castings"
+	} else if entityType == "Private Limited Company" {
+		legalName = fmt.Sprintf("%s COMMERCIAL ENTERPRISES PVT LTD", prefix)
+		tradeName = fmt.Sprintf("%s Enterprises", prefix)
+	} else if entityType == "Partnership / LLP" {
+		legalName = fmt.Sprintf("%s TRADING & LOGISTICS LLP", prefix)
+		tradeName = fmt.Sprintf("%s Trading", prefix)
+	} else {
+		legalName = fmt.Sprintf("%s INDUSTRIAL SUPPLIES & CO", prefix)
+		tradeName = fmt.Sprintf("%s Supplies", prefix)
+	}
+
+	trustScore := 95
+	if len(gstin) > 0 {
+		trustScore = 92 + (int(gstin[len(gstin)-1]) % 8)
+	}
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"gstin":         gstin,
-		"legal_name":    "ACME INDUSTRIAL LIMITED",
-		"trade_name":    "ACME INDUSTRIAL",
+		"pan":           pan,
+		"legal_name":    legalName,
+		"trade_name":    tradeName,
 		"status":        "ACTIVE",
 		"taxpayer_type": "Regular",
-		"state_code":    "07",
-		"trust_score":   95,
+		"state_code":    stateCode,
+		"state":         stateName,
+		"entity_type":   entityType,
+		"trust_score":   trustScore,
 		"is_valid":      true,
-	}, "GSTIN verified successfully with GSTN Portal")
+	}, "GSTIN verified dynamically with GSTN Portal")
 }
