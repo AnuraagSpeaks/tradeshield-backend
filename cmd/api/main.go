@@ -19,7 +19,7 @@ import (
 func main() {
 	mailer.InitMailer()
 	
-	// 1. Seed demo accounts (Apex Buyer, Bharat Supplier, TradeShield Court Admin, etc.)
+	// 1. Seed demo accounts (Apex Buyer, Bharat Supplier, PayShield Court Admin, etc.)
 	repository.DB.SeedData()
 
 	// 2. Load and overlay any existing users and proposals from PostgreSQL

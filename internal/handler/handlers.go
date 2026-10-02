@@ -74,7 +74,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		city = "Vadodara"
 	} else if strings.Contains(reqEmail, "admin") || strings.Contains(reqEmail, "court") || strings.Contains(reqEmail, "arbiter") || req.Role == "admin" {
 		role = domain.RoleAdmin
-		bizName = "TradeShield Neutral Arbitration Panel"
+		bizName = "PayShield Neutral Arbitration Panel"
 		gst = "07AAACT0001A1Z9"
 		city = "New Delhi"
 	}
@@ -921,7 +921,7 @@ func (h *Handler) RaiseDispute(w http.ResponseWriter, r *http.Request) {
 	}
 	h.store.Unlock()
 
-	response.JSON(w, http.StatusCreated, disp, "Dispute registered and assigned to TradeShield Arbitration Panel")
+	response.JSON(w, http.StatusCreated, disp, "Dispute registered and assigned to PayShield Arbitration Panel")
 }
 
 type ArbitrateReq struct {

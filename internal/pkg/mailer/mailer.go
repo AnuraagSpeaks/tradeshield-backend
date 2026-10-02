@@ -216,7 +216,7 @@ func SendOTP(toEmail string, otpCode string, purpose string) {
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; background-color: #f8fafc; padding: 24px; margin: 0;">
   <div style="max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);">
     <div style="background: #0f172a; padding: 24px; color: #ffffff; text-align: center;">
-      <h2 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">🛡️ PayShieldX (TradeShield)</h2>
+      <h2 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">🛡️ PayShieldX</h2>
       <p style="margin: 6px 0 0 0; color: #94a3b8; font-size: 13px;">Secure B2B Payment Protection & Nodal Escrow Protocol</p>
     </div>
     
@@ -236,7 +236,7 @@ func SendOTP(toEmail string, otpCode string, purpose string) {
     </div>
 
     <div style="background: #f8fafc; padding: 16px 24px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center;">
-      TradeShield Technologies Pvt Ltd • RBI Regulated Escrow Trust Protocol
+      PayShield Technologies Pvt Ltd • RBI Regulated Escrow Trust Protocol
     </div>
   </div>
 </body>

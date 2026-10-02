@@ -7,7 +7,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var SecretKey = []byte("tradeshield-secret-jwt-key-2026-production")
+var SecretKey = []byte("payshield-secret-jwt-key-2026-production")
 
 type Claims struct {
 	UserID         string `json:"user_id"`
@@ -26,7 +26,7 @@ func GenerateToken(userID, email, role, orgID string) (string, error) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * 7 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "tradeshield-api",
+			Issuer:    "payshield-api",
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
