@@ -1180,7 +1180,7 @@ func (h *Handler) GetAdminStats(w http.ResponseWriter, r *http.Request) {
 	var disputedCount, failedTxCount int
 	var platformFeeTotal, membershipTotal, refundTotal, pendingSettlementTotal, todayCollection float64
 
-	// 1. Calculate from Users & Buyers
+	// 1. Calculate strictly from Buyers
 	buyersCount = len(h.store.Buyers)
 	for _, b := range h.store.Buyers {
 		if b.AccountStatus == "Active" {
@@ -1208,7 +1208,7 @@ func (h *Handler) GetAdminStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 2. Calculate from Suppliers
+	// 2. Calculate strictly from Suppliers
 	suppliersCount = len(h.store.Suppliers)
 	for _, sp := range h.store.Suppliers {
 		if sp.AccountStatus == "Active" {
@@ -1233,15 +1233,15 @@ func (h *Handler) GetAdminStats(w http.ResponseWriter, r *http.Request) {
 		}
 		switch sp.SupplierPlan {
 		case "Growth Plan", "Growth":
-			membershipTotal += 599.00 * 12
+			membershipTotal += 599.00
 		case "Enterprise Plan", "Enterprise":
-			membershipTotal += 2499.00 * 12
+			membershipTotal += 2499.00
 		default:
-			membershipTotal += 1499.00 * 12
+			membershipTotal += 1499.00
 		}
 	}
 
-	// 3. Calculate from Proposals & Contracts
+	// 3. Calculate strictly from Proposals & Contracts
 	totalProposals = len(h.store.Proposals) + len(h.store.Contracts)
 	for _, p := range h.store.Proposals {
 		if p.Status == "Pending" || p.PaymentStatus == "Unpaid" {
@@ -1266,74 +1266,16 @@ func (h *Handler) GetAdminStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 4. Calculate from Disputes
+	// 4. Calculate strictly from Disputes
 	disputedCount += len(h.store.Disputes)
 
-	// 5. Calculate from Settlements
+	// 5. Calculate strictly from Settlements
 	for _, st := range h.store.Settlements {
 		if st.Status == "PENDING" {
 			pendingSettlementTotal += st.Amount
 		}
 	}
 
-	// Minimum floor benchmarks for high-volume enterprise display
-	if buyersCount < 1280 {
-		buyersCount = 1280 + len(h.store.Buyers)
-	}
-	if suppliersCount < 645 {
-		suppliersCount = 645 + len(h.store.Suppliers)
-	}
-	if activeUsersCount < 1850 {
-		activeUsersCount = 1850 + len(h.store.Buyers) + len(h.store.Suppliers)
-	}
-	if regToday < 18 {
-		regToday = 18
-	}
-	if regWeek < 114 {
-		regWeek = 114
-	}
-	if regMonth < 492 {
-		regMonth = 492
-	}
-	if kycPending < 14 {
-		kycPending = 14
-	}
-	if kycApproved < 1885 {
-		kycApproved = 1885
-	}
-	if kycRejected < 26 {
-		kycRejected = 26
-	}
-	if totalProposals < 3420 {
-		totalProposals = 3420 + len(h.store.Proposals)
-	}
-	if pendingProposals < 38 {
-		pendingProposals = 38
-	}
-	if approvedProposals < 3290 {
-		approvedProposals = 3290 + len(h.store.Proposals)
-	}
-	if disputedCount < 12 {
-		disputedCount = 12 + len(h.store.Disputes)
-	}
-	if failedTxCount == 0 {
-		failedTxCount = 4
-	}
-	if platformFeeTotal < 1845000.00 {
-		platformFeeTotal = 1845000.00
-	}
-	if membershipTotal < 1248000.00 {
-		membershipTotal = 1248000.00
-	}
-	if refundTotal < 420000.00 {
-		refundTotal = 420000.00
-	}
-	if pendingSettlementTotal < 1850000.00 {
-		pendingSettlementTotal = 1850000.00
-	}
-	if todayCollection < 245000.00 {
-		todayCollection = 245000.00
-	}
 	monthlyRevenue := platformFeeTotal + membershipTotal
 
 	stats := domain.AdminBusinessHealthStats{
@@ -1394,21 +1336,12 @@ func (h *Handler) GetAdminFinance(w http.ResponseWriter, r *http.Request) {
 	for _, sp := range h.store.Suppliers {
 		switch sp.SupplierPlan {
 		case "Growth Plan", "Growth":
-			growthRev += 359400.00
+			growthRev += 599.00
 		case "Enterprise Plan", "Enterprise":
-			entRev += 289000.00
+			entRev += 2499.00
 		default:
-			bizRev += 599600.00
+			bizRev += 1499.00
 		}
-	}
-	if growthRev == 0 {
-		growthRev = 359400.00
-	}
-	if bizRev == 0 {
-		bizRev = 599600.00
-	}
-	if entRev == 0 {
-		entRev = 289000.00
 	}
 	membershipRev := growthRev + bizRev + entRev
 
@@ -1421,7 +1354,7 @@ func (h *Handler) GetAdminFinance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var platformFeeTotal float64 = 1845000.00
+	var platformFeeTotal float64
 	for _, p := range h.store.Proposals {
 		platformFeeTotal += p.Amount * 0.0075
 	}
@@ -1429,6 +1362,28 @@ func (h *Handler) GetAdminFinance(w http.ResponseWriter, r *http.Request) {
 		platformFeeTotal += c.PlatformFeeAmount
 	}
 
+	var refundTotal float64
+	for _, b := range h.store.Buyers {
+		for _, rf := range b.RefundHistory {
+			refundTotal += rf.Amount
+		}
+	}
+
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	var todayCollection float64
+	for _, p := range h.store.Proposals {
+		if p.CreatedAt.After(todayStart) && (p.PaymentStatus == "Payment Held in Escrow" || p.PaymentStatus == "Confirmed") {
+			todayCollection += p.Amount
+		}
+	}
+	for _, c := range h.store.Contracts {
+		if c.CreatedAt.After(todayStart) {
+			todayCollection += c.TotalAmount
+		}
+	}
+
+	escrowSummary := h.store.GetEscrowSummary()
 	totalRev := membershipRev + platformFeeTotal
 
 	finance := domain.AdminFinanceStats{
@@ -1438,10 +1393,10 @@ func (h *Handler) GetAdminFinance(w http.ResponseWriter, r *http.Request) {
 		MembershipEnterprise:    entRev,
 		OtherRevenue:            platformFeeTotal,
 		TotalRevenue:            totalRev,
-		EscrowNodalBalance:      48500000.00,
+		EscrowNodalBalance:      escrowSummary.TotalLockedINR,
 		PendingSettlementAmount: pendingSettlementAmount,
-		RefundsTotal:            420000.00,
-		TodayCollection:         245000.00,
+		RefundsTotal:            refundTotal,
+		TodayCollection:         todayCollection,
 		MonthlyRevenue:          totalRev,
 		PendingSettlements:      settlementList,
 	}
