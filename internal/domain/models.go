@@ -385,16 +385,19 @@ type AdminBusinessHealthStats struct {
 }
 
 type AdminFinanceStats struct {
-	MembershipRevenue       float64           `json:"membership_revenue"`
-	MembershipGrowth        float64           `json:"membership_growth"`
-	MembershipBusiness      float64           `json:"membership_business"`
-	MembershipEnterprise    float64           `json:"membership_enterprise"`
-	OtherRevenue            float64           `json:"other_revenue"`
-	TotalRevenue            float64           `json:"total_revenue"`
-	EscrowNodalBalance      float64           `json:"escrow_nodal_balance"`
-	PendingSettlementAmount float64           `json:"pending_settlement_amount"`
-	RefundsTotal            float64           `json:"refunds_total"`
-	TodayCollection         float64           `json:"today_collection"`
-	MonthlyRevenue          float64           `json:"monthly_revenue"`
-	PendingSettlements      []SettlementItem  `json:"pending_settlements"`
+	MembershipRevenue       float64          `json:"membership_revenue"`
+	MembershipGrowth        float64          `json:"membership_growth"`
+	MembershipBusiness      float64          `json:"membership_business"`
+	MembershipEnterprise    float64          `json:"membership_enterprise"`
+	GrowthCount             int              `json:"growth_count"`
+	BusinessCount           int              `json:"business_count"`
+	EnterpriseCount         int              `json:"enterprise_count"`
+	OtherRevenue            float64          `json:"other_revenue"`
+	TotalRevenue            float64          `json:"total_revenue"`
+	EscrowNodalBalance      float64          `json:"escrow_nodal_balance"`
+	PendingSettlementAmount float64          `json:"pending_settlement_amount"`
+	RefundsTotal            float64          `json:"refunds_total"`
+	TodayCollection         float64          `json:"today_collection"`
+	MonthlyRevenue          float64          `json:"monthly_revenue"`
+	PendingSettlements      []SettlementItem `json:"pending_settlements"`
 }

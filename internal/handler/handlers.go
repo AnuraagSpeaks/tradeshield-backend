@@ -1333,14 +1333,18 @@ func (h *Handler) GetAdminFinance(w http.ResponseWriter, r *http.Request) {
 	defer h.store.RUnlock()
 
 	var growthRev, bizRev, entRev float64
+	var growthCount, bizCount, entCount int
 	for _, sp := range h.store.Suppliers {
 		switch sp.SupplierPlan {
 		case "Growth Plan", "Growth":
 			growthRev += 599.00
+			growthCount++
 		case "Enterprise Plan", "Enterprise":
 			entRev += 2499.00
+			entCount++
 		default:
 			bizRev += 1499.00
+			bizCount++
 		}
 	}
 	membershipRev := growthRev + bizRev + entRev
@@ -1391,6 +1395,9 @@ func (h *Handler) GetAdminFinance(w http.ResponseWriter, r *http.Request) {
 		MembershipGrowth:        growthRev,
 		MembershipBusiness:      bizRev,
 		MembershipEnterprise:    entRev,
+		GrowthCount:             growthCount,
+		BusinessCount:           bizCount,
+		EnterpriseCount:         entCount,
 		OtherRevenue:            platformFeeTotal,
 		TotalRevenue:            totalRev,
 		EscrowNodalBalance:      escrowSummary.TotalLockedINR,
