@@ -24,6 +24,9 @@ type Store struct {
 	Journals     []domain.JournalEntry
 	Disputes     map[string]domain.Dispute
 	OTPs         map[string]domain.EmailOTP
+	Buyers       map[string]domain.BuyerRecord
+	Suppliers    map[string]domain.SupplierRecord
+	Settlements  map[string]domain.SettlementItem
 }
 
 var DB = NewStore()
@@ -44,6 +47,9 @@ func NewStore() *Store {
 		Journals:     make([]domain.JournalEntry, 0),
 		Disputes:     make(map[string]domain.Dispute),
 		OTPs:         make(map[string]domain.EmailOTP),
+		Buyers:       make(map[string]domain.BuyerRecord),
+		Suppliers:    make(map[string]domain.SupplierRecord),
+		Settlements:  make(map[string]domain.SettlementItem),
 	}
 }
 
@@ -428,6 +434,288 @@ func (s *Store) SeedData() {
 	s.LedgerAccts["acc_buyer"] = domain.LedgerAccount{ID: "acc_buyer", OrgID: buyerOrg.ID, Name: "BUYER_DEPOSIT", Type: "LIABILITY", Balance: 2500000}
 	s.LedgerAccts["acc_seller"] = domain.LedgerAccount{ID: "acc_seller", OrgID: sellerOrg.ID, Name: "SELLER_PAYOUT", Type: "LIABILITY", Balance: 500000}
 	s.LedgerAccts["acc_fee"] = domain.LedgerAccount{ID: "acc_fee", Name: "PLATFORM_REVENUE", Type: "REVENUE", Balance: 18750}
+
+	// 7. Seed Buyers
+	b1 := domain.BuyerRecord{
+		BuyerID:               "BYR-2026-001",
+		Name:                  "Vikram Malhotra",
+		CompanyName:           "Apex Auto Components Pvt Ltd",
+		Mobile:                "+91 9820123456",
+		Email:                 "procurement@apexauto.in",
+		GSTIN:                 "27AAACA1234A1Z5",
+		PAN:                   "AAACA1234A",
+		KYCStatus:             "Approved",
+		CompletedTransactions: 42,
+		Disputes:              1,
+		TotalTransactionValue: 48500000.00,
+		AccountStatus:         "Active",
+		CreatedAt:             now.AddDate(0, -6, -10),
+		RefundHistory: []domain.RefundRecord{
+			{
+				RefundID:      "RF-8921",
+				TransactionID: "TX-7712",
+				Amount:        120000.00,
+				Reason:        "Minor specification mismatch on batch 4 - Mutual credit adjustment",
+				Status:        "Credited",
+				UTRNumber:     "ICICR520260911002341",
+				CreatedAt:     now.AddDate(0, -1, -5),
+			},
+		},
+	}
+	b2 := domain.BuyerRecord{
+		BuyerID:               "BYR-2026-002",
+		Name:                  "Amit Rawat",
+		CompanyName:           "Rawat Handlooms & Textiles Ltd",
+		Mobile:                "+91 9876543210",
+		Email:                 "procurement@rawathandlooms.in",
+		GSTIN:                 "07AAAAA1111A1ZA",
+		PAN:                   "AAAAA1111A",
+		KYCStatus:             "Approved",
+		CompletedTransactions: 28,
+		Disputes:              0,
+		TotalTransactionValue: 19200000.00,
+		AccountStatus:         "Active",
+		CreatedAt:             now.AddDate(0, -4, -15),
+		RefundHistory:         []domain.RefundRecord{},
+	}
+	b3 := domain.BuyerRecord{
+		BuyerID:               "BYR-2026-003",
+		Name:                  "Kavita Deshmukh",
+		CompanyName:           "Maharastra Agro Processing Corp",
+		Mobile:                "+91 9845112233",
+		Email:                 "kavita@mahaagro.gov.in",
+		GSTIN:                 "27AAACM9988C1Z4",
+		PAN:                   "AAACM9988C",
+		KYCStatus:             "Pending",
+		CompletedTransactions: 5,
+		Disputes:              0,
+		TotalTransactionValue: 3400000.00,
+		AccountStatus:         "Under Review",
+		CreatedAt:             now.AddDate(0, 0, -3),
+		RefundHistory:         []domain.RefundRecord{},
+	}
+	b4 := domain.BuyerRecord{
+		BuyerID:               "BYR-2026-004",
+		Name:                  "Rohan Singhal",
+		CompanyName:           "Singhal Steel & Fabrication",
+		Mobile:                "+91 9811882233",
+		Email:                 "rohan@singhalsteels.com",
+		GSTIN:                 "08AAACS4455S1Z1",
+		PAN:                   "AAACS4455S",
+		KYCStatus:             "Approved",
+		CompletedTransactions: 64,
+		Disputes:              2,
+		TotalTransactionValue: 72000000.00,
+		AccountStatus:         "Active",
+		CreatedAt:             now.AddDate(0, -8, 0),
+		RefundHistory: []domain.RefundRecord{
+			{
+				RefundID:      "RF-9941",
+				TransactionID: "TX-4401",
+				Amount:        300000.00,
+				Reason:        "Transit damage on structural angle bars - Arbitration Refund",
+				Status:        "Credited",
+				UTRNumber:     "HDFCR520260815009124",
+				CreatedAt:     now.AddDate(0, -2, -12),
+			},
+		},
+	}
+	s.Buyers[b1.BuyerID] = b1
+	s.Buyers[b2.BuyerID] = b2
+	s.Buyers[b3.BuyerID] = b3
+	s.Buyers[b4.BuyerID] = b4
+
+	// 8. Seed Suppliers
+	supVerifiedAt := now.AddDate(0, -3, 0)
+	sp1 := domain.SupplierRecord{
+		SupplierID:    "SUP-2026-001",
+		CompanyName:   "Bharat Precision Castings Ltd",
+		ContactPerson: "Rajesh Singhania",
+		Mobile:        "+91 9898123456",
+		Email:         "sales@bharatcastings.com",
+		GSTIN:         "24AABCB5678B1Z2",
+		PAN:           "AABCB5678B",
+		VerificationStatus: "Approved",
+		KYCDocuments: []domain.KYCDocument{
+			{ Type: "GST Registration Certificate", DocumentNo: "GST-24AABCB5678B1Z2", URL: "https://docs.payshieldx.in/kyc/gst_bharat.pdf", Status: "Approved", UploadedAt: now.AddDate(0, -3, 0), VerifiedAt: &supVerifiedAt },
+			{ Type: "Company PAN Card", DocumentNo: "PAN-AABCB5678B", URL: "https://docs.payshieldx.in/kyc/pan_bharat.pdf", Status: "Approved", UploadedAt: now.AddDate(0, -3, 0), VerifiedAt: &supVerifiedAt },
+			{ Type: "MSME Udyam Certificate", DocumentNo: "UDYAM-GJ-01-008912", URL: "https://docs.payshieldx.in/kyc/msme_bharat.pdf", Status: "Approved", UploadedAt: now.AddDate(0, -3, 0), VerifiedAt: &supVerifiedAt },
+			{ Type: "Bank Cancelled Cheque", DocumentNo: "HDFC-000405012938", URL: "https://docs.payshieldx.in/kyc/cheque_bharat.pdf", Status: "Approved", UploadedAt: now.AddDate(0, -3, 0), VerifiedAt: &supVerifiedAt },
+		},
+		SupplierPlan:          "Business Plan",
+		PlanExpiry:            now.AddDate(0, 9, 15),
+		TotalProposals:        58,
+		AcceptedProposals:     52,
+		PendingProposals:      4,
+		RejectedProposals:     2,
+		CompletedTransactions: 49,
+		Disputes:              1,
+		TotalTransactionValue: 62400000.00,
+		Refunds:               0,
+		SettlementInfo: domain.SettlementDetails{
+			BankName:        "HDFC Bank Corporate",
+			AccountNumber:   "000405012938",
+			IFSCCode:        "HDFC0000004",
+			AccountHolder:   "Bharat Precision Castings Ltd",
+			IsPennyDropped:  true,
+			PennyDropStatus: "Verified (Penny Drop Active)",
+			SettlementCycle: "T+1 Next Day",
+		},
+		AccountStatus: "Active",
+		CreatedAt:     now.AddDate(0, -9, 0),
+	}
+	sp2 := domain.SupplierRecord{
+		SupplierID:    "SUP-2026-002",
+		CompanyName:   "S.S. Enterprises",
+		ContactPerson: "Sunil Sharma",
+		Mobile:        "+91 9822334455",
+		Email:         "sunil@ssenterprises.co.in",
+		GSTIN:         "20KBIPS8898M1ZG",
+		PAN:           "KBIPS8898M",
+		VerificationStatus: "Pending",
+		KYCDocuments: []domain.KYCDocument{
+			{ Type: "GST Certificate", DocumentNo: "20KBIPS8898M1ZG", URL: "https://docs.payshieldx.in/kyc/gst_ss.pdf", Status: "Pending", UploadedAt: now.AddDate(0, 0, -2) },
+			{ Type: "Company PAN Card", DocumentNo: "KBIPS8898M", URL: "https://docs.payshieldx.in/kyc/pan_ss.pdf", Status: "Pending", UploadedAt: now.AddDate(0, 0, -2) },
+			{ Type: "Bank Passbook Copy", DocumentNo: "ICIC-5020008819", URL: "https://docs.payshieldx.in/kyc/bank_ss.pdf", Status: "Pending", UploadedAt: now.AddDate(0, 0, -2) },
+		},
+		SupplierPlan:          "Growth Plan",
+		PlanExpiry:            now.AddDate(0, 1, 10),
+		TotalProposals:        12,
+		AcceptedProposals:     9,
+		PendingProposals:      2,
+		RejectedProposals:     1,
+		CompletedTransactions: 8,
+		Disputes:              0,
+		TotalTransactionValue: 9800000.00,
+		Refunds:               0,
+		SettlementInfo: domain.SettlementDetails{
+			BankName:        "ICICI Bank Commercial",
+			AccountNumber:   "50200088192410",
+			IFSCCode:        "ICIC0000104",
+			AccountHolder:   "S.S. Enterprises",
+			IsPennyDropped:  false,
+			PennyDropStatus: "Pending Penny Drop",
+			SettlementCycle: "T+1 Next Day",
+		},
+		AccountStatus: "Under Review",
+		CreatedAt:     now.AddDate(0, 0, -5),
+	}
+	sp3 := domain.SupplierRecord{
+		SupplierID:    "SUP-2026-003",
+		CompanyName:   "Kalyani Industrial Forgings",
+		ContactPerson: "Anand Kalyani",
+		Mobile:        "+91 9844001122",
+		Email:         "anand@kalyaniforgings.in",
+		GSTIN:         "29AAACK5544K1Z8",
+		PAN:           "AAACK5544K",
+		VerificationStatus: "Approved",
+		KYCDocuments: []domain.KYCDocument{
+			{ Type: "GST Certificate", DocumentNo: "29AAACK5544K1Z8", URL: "https://docs.payshieldx.in/kyc/gst_kalyani.pdf", Status: "Approved", UploadedAt: now.AddDate(0, -3, 0), VerifiedAt: &supVerifiedAt },
+			{ Type: "Company PAN Card", DocumentNo: "AAACK5544K", URL: "https://docs.payshieldx.in/kyc/pan_kalyani.pdf", Status: "Approved", UploadedAt: now.AddDate(0, -3, 0), VerifiedAt: &supVerifiedAt },
+			{ Type: "Bank Cancelled Cheque", DocumentNo: "SBI-30910049281", URL: "https://docs.payshieldx.in/kyc/cheque_kalyani.pdf", Status: "Approved", UploadedAt: now.AddDate(0, -3, 0), VerifiedAt: &supVerifiedAt },
+		},
+		SupplierPlan:          "Enterprise Plan",
+		PlanExpiry:            now.AddDate(1, 2, 0),
+		TotalProposals:        114,
+		AcceptedProposals:     108,
+		PendingProposals:      5,
+		RejectedProposals:     1,
+		CompletedTransactions: 102,
+		Disputes:              3,
+		TotalTransactionValue: 142000000.00,
+		Refunds:               1,
+		SettlementInfo: domain.SettlementDetails{
+			BankName:        "State Bank of India Corporate",
+			AccountNumber:   "309100492810",
+			IFSCCode:        "SBIN0000301",
+			AccountHolder:   "Kalyani Industrial Forgings",
+			IsPennyDropped:  true,
+			PennyDropStatus: "Verified (Penny Drop Active)",
+			SettlementCycle: "T+0 Instant",
+		},
+		AccountStatus: "Active",
+		CreatedAt:     now.AddDate(0, -14, 0),
+	}
+	sp4 := domain.SupplierRecord{
+		SupplierID:    "SUP-2026-004",
+		CompanyName:   "Vanguard Electricals & Switchgear",
+		ContactPerson: "Deepak Mehta",
+		Mobile:        "+91 9820998877",
+		Email:         "d.mehta@vanguardelec.com",
+		GSTIN:         "27AAACV9911V1Z3",
+		PAN:           "AAACV9911V",
+		VerificationStatus: "Approved",
+		KYCDocuments: []domain.KYCDocument{
+			{ Type: "GST Registration Certificate", DocumentNo: "27AAACV9911V1Z3", URL: "https://docs.payshieldx.in/kyc/gst_vanguard.pdf", Status: "Approved", UploadedAt: now.AddDate(0, -5, 0), VerifiedAt: &supVerifiedAt },
+			{ Type: "Company PAN Card", DocumentNo: "AAACV9911V", URL: "https://docs.payshieldx.in/kyc/pan_vanguard.pdf", Status: "Approved", UploadedAt: now.AddDate(0, -5, 0), VerifiedAt: &supVerifiedAt },
+		},
+		SupplierPlan:          "Business Plan",
+		PlanExpiry:            now.AddDate(0, 6, 20),
+		TotalProposals:        36,
+		AcceptedProposals:     32,
+		PendingProposals:      3,
+		RejectedProposals:     1,
+		CompletedTransactions: 30,
+		Disputes:              0,
+		TotalTransactionValue: 38500000.00,
+		Refunds:               0,
+		SettlementInfo: domain.SettlementDetails{
+			BankName:        "Kotak Mahindra Bank",
+			AccountNumber:   "0029104000129",
+			IFSCCode:        "KKBK0000182",
+			AccountHolder:   "Vanguard Electricals & Switchgear",
+			IsPennyDropped:  true,
+			PennyDropStatus: "Verified (Penny Drop Active)",
+			SettlementCycle: "T+0 Instant",
+		},
+		AccountStatus: "Active",
+		CreatedAt:     now.AddDate(0, -7, 0),
+	}
+	s.Suppliers[sp1.SupplierID] = sp1
+	s.Suppliers[sp2.SupplierID] = sp2
+	s.Suppliers[sp3.SupplierID] = sp3
+	s.Suppliers[sp4.SupplierID] = sp4
+
+	// 9. Seed Settlements Queue
+	st1 := domain.SettlementItem{
+		SettlementID: "SETTL-2026-901",
+		SupplierID:   "SUP-2026-001",
+		SupplierName: "Bharat Precision Castings Ltd",
+		DealRef:      "TS-CTR-2026-089 (Milestone 2 QC)",
+		BankName:     "HDFC Bank Corporate (A/C ...2938)",
+		AccountNo:    "000405012938",
+		IFSCCode:     "HDFC0000004",
+		Amount:       600000.00,
+		Status:       "PENDING",
+		CreatedAt:    now.AddDate(0, 0, -1),
+	}
+	st2 := domain.SettlementItem{
+		SettlementID: "SETTL-2026-902",
+		SupplierID:   "SUP-2026-002",
+		SupplierName: "S.S. Enterprises",
+		DealRef:      "TS-CTR-2026-104 (Milestone 1 Dispatch)",
+		BankName:     "ICICI Bank Commercial (A/C ...2410)",
+		AccountNo:    "50200088192410",
+		IFSCCode:     "ICIC0000104",
+		Amount:       450000.00,
+		Status:       "PENDING",
+		CreatedAt:    now.AddDate(0, 0, -2),
+	}
+	st3 := domain.SettlementItem{
+		SettlementID: "SETTL-2026-903",
+		SupplierID:   "SUP-2026-004",
+		SupplierName: "Vanguard Electricals & Switchgear",
+		DealRef:      "TS-CTR-2026-042 (Final Acceptance)",
+		BankName:     "Kotak Mahindra Bank (A/C ...0129)",
+		AccountNo:    "0029104000129",
+		IFSCCode:     "KKBK0000182",
+		Amount:       800000.00,
+		Status:       "PENDING",
+		CreatedAt:    now.AddDate(0, 0, -1),
+	}
+	s.Settlements[st1.SettlementID] = st1
+	s.Settlements[st2.SettlementID] = st2
+	s.Settlements[st3.SettlementID] = st3
 }
 
 func (s *Store) GetEscrowSummary() domain.EscrowVaultSummary {

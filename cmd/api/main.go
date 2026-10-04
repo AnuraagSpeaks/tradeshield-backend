@@ -26,7 +26,7 @@ func main() {
 	pg := repository.InitPostgres()
 	if pg != nil {
 		pg.LoadAllIntoStore(repository.DB)
-		log.Println("📥 Syncing all accounts, proposals, and contracts into PostgreSQL...")
+		log.Println("📥 Syncing all accounts, proposals, contracts, buyers, suppliers, and settlements into PostgreSQL...")
 		for _, u := range repository.DB.Users {
 			_ = pg.SaveUser(u)
 		}
@@ -35,6 +35,15 @@ func main() {
 		}
 		for _, c := range repository.DB.Contracts {
 			_ = pg.SaveContract(c)
+		}
+		for _, b := range repository.DB.Buyers {
+			_ = pg.SaveBuyer(b)
+		}
+		for _, sp := range repository.DB.Suppliers {
+			_ = pg.SaveSupplier(sp)
+		}
+		for _, st := range repository.DB.Settlements {
+			_ = pg.SaveSettlement(st)
 		}
 	}
 

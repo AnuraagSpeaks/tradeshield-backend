@@ -151,10 +151,67 @@ func (p *PostgresStore) migrate() error {
 		status VARCHAR(50) DEFAULT 'open',
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 	);
+
+	CREATE TABLE IF NOT EXISTS buyers (
+		buyer_id VARCHAR(100) PRIMARY KEY,
+		name VARCHAR(255),
+		company_name VARCHAR(255),
+		mobile VARCHAR(50),
+		email VARCHAR(255),
+		gstin VARCHAR(50),
+		pan VARCHAR(50),
+		kyc_status VARCHAR(50),
+		completed_transactions INT DEFAULT 0,
+		disputes INT DEFAULT 0,
+		total_transaction_value NUMERIC(15,2) DEFAULT 0,
+		account_status VARCHAR(50) DEFAULT 'Active',
+		refund_history JSONB,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+	);
+
+	CREATE TABLE IF NOT EXISTS suppliers (
+		supplier_id VARCHAR(100) PRIMARY KEY,
+		company_name VARCHAR(255),
+		contact_person VARCHAR(255),
+		mobile VARCHAR(50),
+		email VARCHAR(255),
+		gstin VARCHAR(50),
+		pan VARCHAR(50),
+		kyc_status VARCHAR(50),
+		kyc_documents JSONB,
+		plan_tier VARCHAR(50),
+		plan_expiry TIMESTAMP WITH TIME ZONE,
+		total_proposals INT DEFAULT 0,
+		accepted_proposals INT DEFAULT 0,
+		pending_proposals INT DEFAULT 0,
+		rejected_proposals INT DEFAULT 0,
+		completed_transactions INT DEFAULT 0,
+		disputes INT DEFAULT 0,
+		total_transaction_value NUMERIC(15,2) DEFAULT 0,
+		refunds INT DEFAULT 0,
+		settlement_details JSONB,
+		account_status VARCHAR(50) DEFAULT 'Active',
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+	);
+
+	CREATE TABLE IF NOT EXISTS settlements (
+		settlement_id VARCHAR(100) PRIMARY KEY,
+		supplier_id VARCHAR(100),
+		supplier_name VARCHAR(255),
+		deal_ref VARCHAR(255),
+		bank_name VARCHAR(255),
+		account_number VARCHAR(100),
+		ifsc VARCHAR(50),
+		amount NUMERIC(15,2),
+		status VARCHAR(50),
+		utr_number VARCHAR(100),
+		disbursed_at TIMESTAMP WITH TIME ZONE,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+	);
 	`
 	_, err := p.db.Exec(schema)
 	if err == nil {
-		log.Println("✅ PostgreSQL Schema & Tables Verified!")
+		log.Println("✅ PostgreSQL Schema & Tables Verified (Users, Proposals, Contracts, Disputes, Buyers, Suppliers, Settlements)!")
 	}
 	return err
 }
@@ -265,6 +322,83 @@ func (p *PostgresStore) SaveSupportTicket(t domain.SupportTicket) error {
 	return err
 }
 
+func (p *PostgresStore) SaveBuyer(b domain.BuyerRecord) error {
+	if p == nil || p.db == nil {
+		return nil
+	}
+	refundsBytes, _ := json.Marshal(b.RefundHistory)
+	query := `
+		INSERT INTO buyers (buyer_id, name, company_name, mobile, email, gstin, pan, kyc_status, completed_transactions, disputes, total_transaction_value, account_status, refund_history, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		ON CONFLICT (buyer_id) DO UPDATE SET
+			name = EXCLUDED.name,
+			company_name = EXCLUDED.company_name,
+			mobile = EXCLUDED.mobile,
+			email = EXCLUDED.email,
+			gstin = EXCLUDED.gstin,
+			pan = EXCLUDED.pan,
+			kyc_status = EXCLUDED.kyc_status,
+			completed_transactions = EXCLUDED.completed_transactions,
+			disputes = EXCLUDED.disputes,
+			total_transaction_value = EXCLUDED.total_transaction_value,
+			account_status = EXCLUDED.account_status,
+			refund_history = EXCLUDED.refund_history;
+	`
+	_, err := p.db.Exec(query, b.BuyerID, b.Name, b.CompanyName, b.Mobile, b.Email, b.GSTIN, b.PAN, b.KYCStatus, b.CompletedTransactions, b.Disputes, b.TotalTransactionValue, b.AccountStatus, string(refundsBytes), b.CreatedAt)
+	return err
+}
+
+func (p *PostgresStore) SaveSupplier(s domain.SupplierRecord) error {
+	if p == nil || p.db == nil {
+		return nil
+	}
+	docsBytes, _ := json.Marshal(s.KYCDocuments)
+	settleBytes, _ := json.Marshal(s.SettlementInfo)
+	query := `
+		INSERT INTO suppliers (supplier_id, company_name, contact_person, mobile, email, gstin, pan, kyc_status, kyc_documents, plan_tier, plan_expiry, total_proposals, accepted_proposals, pending_proposals, rejected_proposals, completed_transactions, disputes, total_transaction_value, refunds, settlement_details, account_status, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+		ON CONFLICT (supplier_id) DO UPDATE SET
+			company_name = EXCLUDED.company_name,
+			contact_person = EXCLUDED.contact_person,
+			mobile = EXCLUDED.mobile,
+			email = EXCLUDED.email,
+			gstin = EXCLUDED.gstin,
+			pan = EXCLUDED.pan,
+			kyc_status = EXCLUDED.kyc_status,
+			kyc_documents = EXCLUDED.kyc_documents,
+			plan_tier = EXCLUDED.plan_tier,
+			plan_expiry = EXCLUDED.plan_expiry,
+			total_proposals = EXCLUDED.total_proposals,
+			accepted_proposals = EXCLUDED.accepted_proposals,
+			pending_proposals = EXCLUDED.pending_proposals,
+			rejected_proposals = EXCLUDED.rejected_proposals,
+			completed_transactions = EXCLUDED.completed_transactions,
+			disputes = EXCLUDED.disputes,
+			total_transaction_value = EXCLUDED.total_transaction_value,
+			refunds = EXCLUDED.refunds,
+			settlement_details = EXCLUDED.settlement_details,
+			account_status = EXCLUDED.account_status;
+	`
+	_, err := p.db.Exec(query, s.SupplierID, s.CompanyName, s.ContactPerson, s.Mobile, s.Email, s.GSTIN, s.PAN, s.VerificationStatus, string(docsBytes), s.SupplierPlan, s.PlanExpiry, s.TotalProposals, s.AcceptedProposals, s.PendingProposals, s.RejectedProposals, s.CompletedTransactions, s.Disputes, s.TotalTransactionValue, s.Refunds, string(settleBytes), s.AccountStatus, s.CreatedAt)
+	return err
+}
+
+func (p *PostgresStore) SaveSettlement(st domain.SettlementItem) error {
+	if p == nil || p.db == nil {
+		return nil
+	}
+	query := `
+		INSERT INTO settlements (settlement_id, supplier_id, supplier_name, deal_ref, bank_name, account_number, ifsc, amount, status, utr_number, disbursed_at, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		ON CONFLICT (settlement_id) DO UPDATE SET
+			status = EXCLUDED.status,
+			utr_number = EXCLUDED.utr_number,
+			disbursed_at = EXCLUDED.disbursed_at;
+	`
+	_, err := p.db.Exec(query, st.SettlementID, st.SupplierID, st.SupplierName, st.DealRef, st.BankName, st.AccountNo, st.IFSCCode, st.Amount, st.Status, st.UTRNumber, st.DisbursedAt, st.CreatedAt)
+	return err
+}
+
 func (p *PostgresStore) LoadAllIntoStore(s *Store) error {
 	if p == nil || p.db == nil {
 		return nil
@@ -314,6 +448,53 @@ func (p *PostgresStore) LoadAllIntoStore(s *Store) error {
 		}
 	}
 
-	log.Printf("📊 Restored from PostgreSQL: %d users, %d proposals, %d contracts", len(s.Users), len(s.Proposals), len(s.Contracts))
+	// 4. Load Buyers
+	bRows, err := p.db.Query("SELECT buyer_id, name, company_name, mobile, email, gstin, pan, kyc_status, completed_transactions, disputes, total_transaction_value, account_status, refund_history, created_at FROM buyers")
+	if err == nil {
+		defer bRows.Close()
+		for bRows.Next() {
+			var b domain.BuyerRecord
+			var refundsJSON string
+			if err := bRows.Scan(&b.BuyerID, &b.Name, &b.CompanyName, &b.Mobile, &b.Email, &b.GSTIN, &b.PAN, &b.KYCStatus, &b.CompletedTransactions, &b.Disputes, &b.TotalTransactionValue, &b.AccountStatus, &refundsJSON, &b.CreatedAt); err == nil {
+				if refundsJSON != "" {
+					json.Unmarshal([]byte(refundsJSON), &b.RefundHistory)
+				}
+				s.Buyers[b.BuyerID] = b
+			}
+		}
+	}
+
+	// 5. Load Suppliers
+	sRows, err := p.db.Query("SELECT supplier_id, company_name, contact_person, mobile, email, gstin, pan, kyc_status, kyc_documents, plan_tier, plan_expiry, total_proposals, accepted_proposals, pending_proposals, rejected_proposals, completed_transactions, disputes, total_transaction_value, refunds, settlement_details, account_status, created_at FROM suppliers")
+	if err == nil {
+		defer sRows.Close()
+		for sRows.Next() {
+			var sp domain.SupplierRecord
+			var docsJSON, settleJSON string
+			if err := sRows.Scan(&sp.SupplierID, &sp.CompanyName, &sp.ContactPerson, &sp.Mobile, &sp.Email, &sp.GSTIN, &sp.PAN, &sp.VerificationStatus, &docsJSON, &sp.SupplierPlan, &sp.PlanExpiry, &sp.TotalProposals, &sp.AcceptedProposals, &sp.PendingProposals, &sp.RejectedProposals, &sp.CompletedTransactions, &sp.Disputes, &sp.TotalTransactionValue, &sp.Refunds, &settleJSON, &sp.AccountStatus, &sp.CreatedAt); err == nil {
+				if docsJSON != "" {
+					json.Unmarshal([]byte(docsJSON), &sp.KYCDocuments)
+				}
+				if settleJSON != "" {
+					json.Unmarshal([]byte(settleJSON), &sp.SettlementInfo)
+				}
+				s.Suppliers[sp.SupplierID] = sp
+			}
+		}
+	}
+
+	// 6. Load Settlements
+	stRows, err := p.db.Query("SELECT settlement_id, supplier_id, supplier_name, deal_ref, bank_name, account_number, ifsc, amount, status, utr_number, disbursed_at, created_at FROM settlements")
+	if err == nil {
+		defer stRows.Close()
+		for stRows.Next() {
+			var st domain.SettlementItem
+			if err := stRows.Scan(&st.SettlementID, &st.SupplierID, &st.SupplierName, &st.DealRef, &st.BankName, &st.AccountNo, &st.IFSCCode, &st.Amount, &st.Status, &st.UTRNumber, &st.DisbursedAt, &st.CreatedAt); err == nil {
+				s.Settlements[st.SettlementID] = st
+			}
+		}
+	}
+
+	log.Printf("📊 Restored from PostgreSQL: %d users, %d proposals, %d contracts, %d buyers, %d suppliers, %d settlements", len(s.Users), len(s.Proposals), len(s.Contracts), len(s.Buyers), len(s.Suppliers), len(s.Settlements))
 	return nil
 }

@@ -339,6 +339,7 @@ type SupplierRecord struct {
 	PendingProposals      int               `json:"pending_proposals"`
 	CompletedTransactions int               `json:"completed_transactions"`
 	Disputes              int               `json:"disputes"`
+	TotalTransactionValue float64           `json:"total_transaction_value"`
 	Refunds               float64           `json:"refunds"`
 	SettlementInfo        SettlementDetails `json:"settlement_info"`
 	AccountStatus         string            `json:"account_status"` // Active, Suspended, Under Review
@@ -346,17 +347,18 @@ type SupplierRecord struct {
 }
 
 type SettlementItem struct {
-	SettlementID string    `json:"settlement_id"`
-	SupplierID   string    `json:"supplier_id"`
-	SupplierName string    `json:"supplier_name"`
-	BankName     string    `json:"bank_name"`
-	AccountNo    string    `json:"account_no"`
-	IFSCCode     string    `json:"ifsc_code"`
-	Amount       float64   `json:"amount"`
-	DealRef      string    `json:"deal_ref"`
-	Status       string    `json:"status"` // PENDING, PROCESSING, SETTLED
-	UTRNumber    string    `json:"utr_number,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
+	SettlementID string     `json:"settlement_id"`
+	SupplierID   string     `json:"supplier_id"`
+	SupplierName string     `json:"supplier_name"`
+	BankName     string     `json:"bank_name"`
+	AccountNo    string     `json:"account_no"`
+	IFSCCode     string     `json:"ifsc_code"`
+	Amount       float64    `json:"amount"`
+	DealRef      string     `json:"deal_ref"`
+	Status       string     `json:"status"` // PENDING, PROCESSING, SETTLED
+	UTRNumber    string     `json:"utr_number,omitempty"`
+	DisbursedAt  *time.Time `json:"disbursed_at,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
 }
 
 type AdminBusinessHealthStats struct {
