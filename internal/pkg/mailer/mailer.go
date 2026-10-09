@@ -255,6 +255,181 @@ func SendOTP(toEmail string, otpCode string, purpose string) {
 	}()
 }
 
+// SendProposalCreatedNotification sends the IndiaMART-style proposal acknowledgement email to the buyer
+func SendProposalCreatedNotification(p domain.Proposal) {
+	go func() {
+		recipient := p.BuyerEmail
+		if recipient == "" {
+			recipient = MailerConfig.AlertEmail
+		}
+		if recipient == "" {
+			recipient = "buyer@apexautocomponents.in"
+		}
+
+		proposalLink := fmt.Sprintf("http://localhost:5173/?tab=proposals&proposalId=%s", p.ID)
+		subject := fmt.Sprintf("Proposal (%s) for PayShieldX Services", p.ProposalNumber)
+		buyerName := p.BuyerSignatory
+		if buyerName == "" {
+			buyerName = p.BuyerName
+		}
+		if buyerName == "" {
+			buyerName = "Valued Buyer"
+		}
+
+		html := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; background-color: #f1f5f9; padding: 24px; margin: 0;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; border: 1px solid #cbd5e1; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.06);">
+    
+    <!-- Header with Branding -->
+    <div style="padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9;">
+      <div style="display: inline-block;">
+        <span style="font-size: 24px; font-weight: 900; color: #0f172a; letter-spacing: -0.5px;">🛡️ <span style="color: #2563eb;">Pay</span>ShieldX</span>
+        <span style="display: block; font-size: 10px; color: #64748b; font-weight: 600; text-transform: uppercase;">Payment Protection Plan</span>
+      </div>
+    </div>
+
+    <!-- Blue Acknowledgement Banner (Matching IndiaMART Email Reference) -->
+    <div style="background: #1e3a8a; color: #ffffff; text-align: center; padding: 12px 16px; font-size: 16px; font-weight: 700; letter-spacing: 0.5px;">
+      Acknowledgement for Proposal
+    </div>
+
+    <!-- Body Content -->
+    <div style="padding: 28px 24px; font-size: 14px; line-height: 1.6; color: #334155;">
+      <p style="margin: 0 0 16px 0;">Dear <strong>%s</strong>,</p>
+      <p style="margin: 0 0 16px 0;">Thank you for showing your interest in PayShieldX Escrow-Protected Trade Services for your order with <strong>%s</strong>.</p>
+      <p style="margin: 0 0 24px 0;">Please view the complete details of your interested service so that we can proceed further.</p>
+
+      <!-- Primary Action CTA Button -->
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="%s" style="background-color: #0284c7; color: #ffffff; padding: 14px 36px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 15px; display: inline-block; box-shadow: 0 4px 10px rgba(2, 132, 199, 0.35);">
+          View Proposal
+        </a>
+      </div>
+
+      <!-- Proposal Summary Box -->
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 24px 0; font-size: 13px;">
+        <table style="width: 100%%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 6px 0; color: #64748b; width: 140px;">Proposal ID:</td>
+            <td style="padding: 6px 0; font-weight: bold; color: #0f172a;">%s</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">Deal / Service:</td>
+            <td style="padding: 6px 0; font-weight: 600; color: #0f172a;">%s</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">Supplier:</td>
+            <td style="padding: 6px 0; font-weight: 600; color: #0f172a;">%s</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">Total Amount:</td>
+            <td style="padding: 6px 0; font-weight: bold; color: #059669; font-size: 15px;">₹%s (Inc. GST)</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Fallback Copy Link -->
+      <p style="font-size: 12px; color: #64748b; margin: 20px 0 24px 0; word-break: break-all;">
+        Alternatively, copy the proposal link: <br>
+        <a href="%s" style="color: #0284c7; text-decoration: underline;">%s</a>
+      </p>
+
+      <p style="margin: 0 0 24px 0; font-size: 13px;">In case of any queries, please contact the undersigned.</p>
+
+      <!-- Signature block -->
+      <div style="font-size: 13px; color: #334155; line-height: 1.5; margin-bottom: 24px;">
+        <div>Warm Regards,</div>
+        <div style="font-weight: 700; color: #0f172a; margin-top: 4px;">Sujit Kumar</div>
+        <div style="color: #64748b;">Senior Relationship Officer</div>
+        <div style="color: #64748b;">+91 8920726073</div>
+        <div><a href="mailto:support@payshieldx.in" style="color: #0284c7;">support@payshieldx.in</a></div>
+      </div>
+
+      <!-- Helpdesk Box -->
+      <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 16px; font-size: 12px; color: #475569;">
+        <div style="font-weight: 700; color: #0f172a; margin-bottom: 4px;">Happy to Help</div>
+        <div>Email: <a href="mailto:support@payshieldx.in" style="color: #0284c7;">support@payshieldx.in</a></div>
+        <div>Call Us: <strong>+91 8920726073 / 1800-PAY-SHIELD</strong></div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="background: #f8fafc; padding: 12px 24px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center;">
+      PayShield Technologies Pvt Ltd • 6th Floor, Assotech Business Cresterra, Plot No. 22, Sec 135, Noida-201305, U.P.
+    </div>
+  </div>
+</body>
+</html>`,
+			buyerName,
+			p.SupplierName,
+			proposalLink,
+			p.ProposalNumber,
+			p.ItemDescription,
+			p.SupplierName,
+			fmt.Sprintf("%.2f", p.Amount),
+			proposalLink,
+			proposalLink,
+		)
+
+		if !MailerConfig.Enabled {
+			log.Printf("📧 [PROPOSAL EMAIL DISPATCHED] To: %s | Proposal: %s | Link: %s", recipient, p.ProposalNumber, proposalLink)
+			return
+		}
+
+		err := dispatchEmail(recipient, subject, html)
+		if err != nil {
+			log.Printf("⚠️ Failed to dispatch proposal email to %s: %v", recipient, err)
+		} else {
+			log.Printf("✅ Proposal email [%s] successfully sent to %s", p.ProposalNumber, recipient)
+		}
+	}()
+}
+
+// SendProposalApprovedNotification confirms escrow lock & contract generation to both parties
+func SendProposalApprovedNotification(p domain.Proposal) {
+	go func() {
+		recipient := p.BuyerEmail
+		if recipient == "" {
+			recipient = MailerConfig.AlertEmail
+		}
+		if recipient == "" {
+			recipient = "buyer@apexautocomponents.in"
+		}
+
+		subject := fmt.Sprintf("✅ Proposal #%s Accepted & Escrow Locked – PayShieldX", p.ProposalNumber)
+		html := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; color: #1e293b; background-color: #f8fafc; padding: 24px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; border: 1px solid #cbd5e1; overflow: hidden;">
+    <div style="background: #059669; color: #ffffff; padding: 16px 24px;">
+      <h2 style="margin: 0; font-size: 18px;">🛡️ Escrow Protected Trade Deal Activated</h2>
+    </div>
+    <div style="padding: 24px; font-size: 14px; line-height: 1.6;">
+      <p>Dear <strong>%s</strong>,</p>
+      <p>Your trade deal proposal <strong>#%s</strong> for <strong>₹%.2f</strong> has been successfully <strong>Approved and Funded into Escrow</strong>.</p>
+      <p>The funds are securely locked in the ICICI Nodal Vault and will be disbursed in tranches upon verified QC and Dispatch proof submission.</p>
+      <div style="margin-top: 24px; padding: 12px; background: #f1f5f9; border-radius: 6px; font-size: 12px;">
+        Track contract status in real-time on your PayShieldX Buyer Portal.
+      </div>
+    </div>
+  </div>
+</body>
+</html>`,
+			p.BuyerName,
+			p.ProposalNumber,
+			p.Amount,
+		)
+
+		if !MailerConfig.Enabled {
+			log.Printf("📧 [PROPOSAL APPROVED EMAIL] To: %s | Proposal: %s", recipient, p.ProposalNumber)
+			return
+		}
+
+		_ = dispatchEmail(recipient, subject, html)
+	}()
+}
+
 func dispatchEmail(to string, subject string, htmlBody string) error {
 	// If Resend API Key is available, use Resend REST API
 	if MailerConfig.ResendAPIKey != "" {

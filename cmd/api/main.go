@@ -95,6 +95,7 @@ func main() {
 		r.Get("/proposals", h.ListProposals)
 		r.Post("/proposals", h.CreateProposal)
 		r.Get("/proposals/{id}", h.GetProposal)
+		r.Get("/proposals/{id}/pdf", h.GetProposalPDFHTML)
 		r.Post("/proposals/{id}/approve", h.ApproveProposal)
 		r.Post("/proposals/{id}/request-modification", h.RequestModification)
 		r.Post("/proposals/{id}/ship", h.ShipProposal)

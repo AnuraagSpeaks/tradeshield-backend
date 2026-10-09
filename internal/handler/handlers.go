@@ -395,13 +395,28 @@ func (h *Handler) GetProposal(w http.ResponseWriter, r *http.Request) {
 }
 
 type CreateProposalReq struct {
-	BuyerID          string  `json:"buyer_id"`
-	SupplierID       string  `json:"supplier_id"`
-	Amount           float64 `json:"amount"`
-	Currency         string  `json:"currency"`
-	Terms            string  `json:"terms"`
-	DeliveryTimeline string  `json:"delivery_timeline"`
-	Notes            string  `json:"notes"`
+	BuyerID           string  `json:"buyer_id"`
+	BuyerName         string  `json:"buyer_name"`
+	BuyerSignatory    string  `json:"buyer_signatory"`
+	BuyerEmail        string  `json:"buyer_email"`
+	BuyerGSTIN        string  `json:"buyer_gstin"`
+	BuyerAddress      string  `json:"buyer_address"`
+	SupplierID        string  `json:"supplier_id"`
+	SupplierName      string  `json:"supplier_name"`
+	SupplierSignatory string  `json:"supplier_signatory"`
+	SupplierEmail     string  `json:"supplier_email"`
+	SupplierGSTIN     string  `json:"supplier_gstin"`
+	SupplierAddress   string  `json:"supplier_address"`
+	ItemDescription   string  `json:"item_description"`
+	BaseAmount        float64 `json:"base_amount"`
+	DiscountPercent   float64 `json:"discount_percent"`
+	TaxPercent        float64 `json:"tax_percent"`
+	Amount            float64 `json:"amount"`
+	Currency          string  `json:"currency"`
+	Terms             string  `json:"terms"`
+	MilestonesSummary string  `json:"milestones_summary"`
+	DeliveryTimeline  string  `json:"delivery_timeline"`
+	Notes             string  `json:"notes"`
 }
 
 func (h *Handler) CreateProposal(w http.ResponseWriter, r *http.Request) {
@@ -411,24 +426,92 @@ func (h *Handler) CreateProposal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Amount <= 0 {
-		response.Error(w, http.StatusBadRequest, "Amount must be greater than zero")
+	baseAmt := req.BaseAmount
+	if baseAmt <= 0 && req.Amount > 0 {
+		baseAmt = req.Amount
+	}
+	if baseAmt <= 0 {
+		response.Error(w, http.StatusBadRequest, "Deal base amount must be greater than zero")
 		return
 	}
 
+	discPct := req.DiscountPercent
+	discAmt := baseAmt * (discPct / 100.0)
+	dealAmt := baseAmt - discAmt
+
+	taxPct := req.TaxPercent
+	if taxPct <= 0 {
+		taxPct = 18.00 // standard GST
+	}
+	taxAmt := dealAmt * (taxPct / 100.0)
+	totalPayable := dealAmt + taxAmt
+
 	propID := "prop_" + uuid.New().String()[:8]
-	orderID := fmt.Sprintf("ORD-%d", 10000+time.Now().Unix()%90000)
+	propNumber := fmt.Sprintf("%d", 4770000+time.Now().Unix()%90000)
+	orderID := fmt.Sprintf("ORD-%s", propNumber)
 
 	h.store.Lock()
-	defer h.store.Unlock()
 
-	buyerName := "Verified Buyer"
+	buyerName := req.BuyerName
+	buyerGSTIN := req.BuyerGSTIN
+	buyerEmail := req.BuyerEmail
+	buyerAddress := req.BuyerAddress
+	buyerSignatory := req.BuyerSignatory
+
 	if b, ok := h.store.Users[req.BuyerID]; ok {
-		buyerName = b.BusinessName
+		if buyerName == "" {
+			buyerName = b.BusinessName
+		}
+		if buyerGSTIN == "" {
+			buyerGSTIN = b.GST
+		}
+		if buyerEmail == "" {
+			buyerEmail = b.Email
+		}
+		if buyerAddress == "" {
+			buyerAddress = fmt.Sprintf("Industrial Area, %s, India", b.City)
+		}
+		if buyerSignatory == "" {
+			buyerSignatory = b.FullName
+		}
 	}
-	supplierName := "Verified Supplier"
+	if buyerName == "" {
+		buyerName = "Apex Auto Components Pvt Ltd"
+		buyerGSTIN = "27AAACA1234A1Z5"
+		buyerEmail = "procurement@apexauto.in"
+		buyerAddress = "Plot 42, MIDC Bhosari Industrial Area, Pune, Maharashtra 411026"
+		buyerSignatory = "Vikram Malhotra"
+	}
+
+	supplierName := req.SupplierName
+	supplierGSTIN := req.SupplierGSTIN
+	supplierEmail := req.SupplierEmail
+	supplierAddress := req.SupplierAddress
+	supplierSignatory := req.SupplierSignatory
+
 	if s, ok := h.store.Users[req.SupplierID]; ok {
-		supplierName = s.BusinessName
+		if supplierName == "" {
+			supplierName = s.BusinessName
+		}
+		if supplierGSTIN == "" {
+			supplierGSTIN = s.GST
+		}
+		if supplierEmail == "" {
+			supplierEmail = s.Email
+		}
+		if supplierAddress == "" {
+			supplierAddress = fmt.Sprintf("GIDC Industrial Estate, %s, Gujarat, India", s.City)
+		}
+		if supplierSignatory == "" {
+			supplierSignatory = s.FullName
+		}
+	}
+	if supplierName == "" {
+		supplierName = "Bharat Precision Castings Ltd"
+		supplierGSTIN = "24AABCB5678B1Z2"
+		supplierEmail = "sales@bharatcastings.com"
+		supplierAddress = "Survey No. 118, GIDC Makarpura Industrial Estate, Vadodara, Gujarat 390010"
+		supplierSignatory = "Rajesh Singhania"
 	}
 
 	curr := req.Currency
@@ -436,31 +519,77 @@ func (h *Handler) CreateProposal(w http.ResponseWriter, r *http.Request) {
 		curr = "INR"
 	}
 
+	itemDesc := req.ItemDescription
+	if itemDesc == "" {
+		itemDesc = "Supply of Industrial Consignments & Engineering Components"
+	}
+
+	milestonesSum := req.MilestonesSummary
+	if milestonesSum == "" {
+		milestonesSum = "20% Advance (QC Cert) • 40% Dispatch (LR Proof) • 40% Delivery (Warehouse Signoff)"
+	}
+
+	timeline := req.DeliveryTimeline
+	if timeline == "" {
+		timeline = "21 Business Days"
+	}
+
+	terms := req.Terms
+	if terms == "" {
+		terms = "100% Escrow Protected Trade Deal via PayShieldX Nodal Trust Account"
+	}
+
+	validTill := time.Now().Add(14 * 24 * time.Hour)
+
 	p := domain.Proposal{
-		ID:               propID,
-		OrderID:          orderID,
-		BuyerID:          req.BuyerID,
-		BuyerName:        buyerName,
-		SupplierID:       req.SupplierID,
-		SupplierName:     supplierName,
-		Amount:           req.Amount,
-		Currency:         curr,
-		Terms:            req.Terms,
-		DeliveryTimeline: req.DeliveryTimeline,
-		Notes:            req.Notes,
-		Status:           "Draft",
-		PaymentStatus:    "Unpaid",
-		BuyerApproved:    false,
-		SupplierApproved: false,
-		CreatedAt:        time.Now(),
-		UpdatedAt:        time.Now(),
+		ID:                 propID,
+		ProposalNumber:     propNumber,
+		OrderID:            orderID,
+		BuyerID:            req.BuyerID,
+		BuyerName:          buyerName,
+		BuyerSignatory:     buyerSignatory,
+		BuyerEmail:         buyerEmail,
+		BuyerGSTIN:         buyerGSTIN,
+		BuyerAddress:       buyerAddress,
+		SupplierID:         req.SupplierID,
+		SupplierName:       supplierName,
+		SupplierSignatory:   supplierSignatory,
+		SupplierEmail:       supplierEmail,
+		SupplierGSTIN:       supplierGSTIN,
+		SupplierAddress:     supplierAddress,
+		ItemDescription:    itemDesc,
+		BaseAmount:         baseAmt,
+		DiscountPercent:    discPct,
+		DiscountAmount:     discAmt,
+		TaxPercent:         taxPct,
+		TaxAmount:          taxAmt,
+		TotalPayableAmount: totalPayable,
+		Amount:             totalPayable,
+		Currency:           curr,
+		Terms:              terms,
+		MilestonesSummary:  milestonesSum,
+		DeliveryTimeline:   timeline,
+		Notes:              req.Notes,
+		Status:             "PENDING_BUYER_APPROVAL",
+		PaymentStatus:      "Pending Escrow",
+		BuyerApproved:      false,
+		SupplierApproved:   true,
+		ValidTillDate:      &validTill,
+		CreatedAt:          time.Now(),
+		UpdatedAt:          time.Now(),
 	}
 
 	h.store.Proposals[p.ID] = p
+	h.store.Unlock()
+
 	if repository.PG != nil {
 		repository.PG.SaveProposal(p)
 	}
-	response.JSON(w, http.StatusCreated, p, "Payment Confirmation Proposal created successfully")
+
+	// Dispatch automated IndiaMART style proposal acknowledgement email to buyer
+	mailer.SendProposalCreatedNotification(p)
+
+	response.JSON(w, http.StatusCreated, p, "Trade Deal Proposal created successfully and email dispatched to buyer")
 }
 
 type ApproveProposalReq struct {
@@ -474,36 +603,293 @@ func (h *Handler) ApproveProposal(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	h.store.Lock()
-	defer h.store.Unlock()
-
 	p, ok := h.store.Proposals[id]
 	if !ok {
+		h.store.Unlock()
 		response.Error(w, http.StatusNotFound, "Proposal not found")
 		return
 	}
 
-	if req.Role == "buyer" {
-		p.BuyerApproved = true
-	} else if req.Role == "supplier" {
-		p.SupplierApproved = true
+	p.BuyerApproved = true
+	p.Status = "APPROVED"
+	p.PaymentStatus = "Payment Held in Escrow"
+	now := time.Now()
+	p.ApprovedAt = &now
+	p.UpdatedAt = now
+
+	// Convert approved proposal into an Active Escrow Contract with 3 milestones
+	contractID := "cntr_" + uuid.New().String()[:8]
+	cNum := fmt.Sprintf("TS-CTR-%d-%s", time.Now().Year(), p.ProposalNumber)
+	van := fmt.Sprintf("ICIC0000104PSX%s", p.ProposalNumber)
+
+	c := domain.Contract{
+		ID:                   contractID,
+		Title:                p.ItemDescription,
+		ContractNumber:       cNum,
+		BuyerOrgID:           p.BuyerID,
+		BuyerOrgName:         p.BuyerName,
+		SupplierOrgID:        p.SupplierID,
+		SupplierOrgName:      p.SupplierName,
+		TotalAmount:          p.Amount,
+		Currency:             p.Currency,
+		PlatformFeePercent:   0.75,
+		PlatformFeeAmount:    p.Amount * 0.0075,
+		EscrowVirtualAccount: van,
+		Status:               domain.ContractStatusFunded,
+		Description:          p.Terms,
+		DeliveryTerms:        p.DeliveryTimeline,
+		InspectionPeriodDays: 2,
+		CreatedAt:            now,
+		UpdatedAt:            now,
 	}
 
-	if p.BuyerApproved && p.SupplierApproved {
-		p.Status = "Confirmed"
-		p.PaymentStatus = "Payment Held in Escrow"
-	} else if p.SupplierApproved {
-		p.Status = "Approved by Supplier"
-	} else if p.BuyerApproved {
-		p.Status = "Approved by Buyer"
+	// 3 Tranches: 20% Advance, 40% Dispatch, 40% Delivery
+	m1 := domain.Milestone{
+		ID:          fmt.Sprintf("ms_%s_1", contractID[5:]),
+		ContractID:  contractID,
+		Sequence:    1,
+		Title:       "20% Advance: Raw Material QC & Mill Certificate Sign-off",
+		Amount:      p.Amount * 0.20,
+		Status:      domain.MilestoneStatusFunded,
+		Description: "Advance release upon raw material inspection and certificate upload",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	m2 := domain.Milestone{
+		ID:          fmt.Sprintf("ms_%s_2", contractID[5:]),
+		ContractID:  contractID,
+		Sequence:    2,
+		Title:       "40% Dispatch: Transporter Lorry Receipt (LR) Verification",
+		Amount:      p.Amount * 0.40,
+		Status:      domain.MilestoneStatusFunded,
+		Description: "Mid-tranche release upon transporter tracking & LR consignment handover",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	m3 := domain.Milestone{
+		ID:          fmt.Sprintf("ms_%s_3", contractID[5:]),
+		ContractID:  contractID,
+		Sequence:    3,
+		Title:       "40% Delivery: Warehouse Inspection & Final Acceptance",
+		Amount:      p.Amount * 0.40,
+		Status:      domain.MilestoneStatusFunded,
+		Description: "Final settlement release upon physical delivery inspection at buyer warehouse",
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
-	p.UpdatedAt = time.Now()
+	c.Milestones = []domain.Milestone{m1, m2, m3}
+	h.store.Contracts[c.ID] = c
+	h.store.Milestones[m1.ID] = m1
+	h.store.Milestones[m2.ID] = m2
+	h.store.Milestones[m3.ID] = m3
+
+	p.ContractID = c.ID
 	h.store.Proposals[id] = p
+	h.store.Unlock()
+
 	if repository.PG != nil {
 		repository.PG.SaveProposal(p)
+		repository.PG.SaveContract(c)
 	}
 
-	response.JSON(w, http.StatusOK, p, "Proposal approved successfully")
+	// Record Double-Entry Ledger
+	h.store.RecordDoubleEntry(c.ID, "", "ESCROW_DEPOSIT", fmt.Sprintf("Buyer funded proposal #%s into Escrow Vault", p.ProposalNumber), "BUYER_WALLET", "ESCROW_VAULT", p.Amount)
+
+	// Send approval confirmation email
+	mailer.SendProposalApprovedNotification(p)
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"proposal": p,
+		"contract": c,
+		"message":  "Proposal approved, funded into Escrow, and activated as Escrow Contract",
+	}, "Proposal approved and funded successfully")
+}
+
+func (h *Handler) GetProposalPDFHTML(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	h.store.RLock()
+	p, ok := h.store.Proposals[id]
+	h.store.RUnlock()
+
+	if !ok {
+		http.Error(w, "Proposal not found", http.StatusNotFound)
+		return
+	}
+
+	approvedStamp := ""
+	if p.BuyerApproved || p.Status == "APPROVED" {
+		approvedStamp = `<div style="position: absolute; top: 45%; left: 30%; transform: rotate(-25deg); border: 5px solid #059669; color: #059669; font-size: 48px; font-weight: 900; padding: 12px 36px; border-radius: 12px; letter-spacing: 6px; opacity: 0.35; pointer-events: none;">APPROVED</div>`
+	}
+
+	apprDate := "Pending Acceptance"
+	if p.ApprovedAt != nil {
+		apprDate = p.ApprovedAt.Format("02-Jan-2006")
+	}
+
+	validDateStr := "14 Days from Issue"
+	if p.ValidTillDate != nil {
+		validDateStr = p.ValidTillDate.Format("02-Jan-2006")
+	}
+
+	html := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Proposal (%s) - PayShieldX</title>
+  <style>
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 0; padding: 40px; background: #f8fafc; }
+    .doc-container { max-width: 850px; margin: 0 auto; background: #fff; padding: 48px; border-radius: 8px; border: 1px solid #e2e8f0; position: relative; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 20px; }
+    .title { text-align: center; font-size: 24px; font-weight: 800; margin: 28px 0 20px 0; letter-spacing: -0.5px; }
+    .meta-grid { display: flex; justify-content: space-between; font-size: 13px; line-height: 1.6; margin-bottom: 28px; }
+    .table { width: 100%%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+    .table th { background: #f1f5f9; padding: 10px 12px; border: 1px solid #cbd5e1; text-align: left; }
+    .table td { padding: 12px; border: 1px solid #cbd5e1; vertical-align: top; }
+    .summary-table { width: 340px; margin-left: auto; margin-top: 16px; border-collapse: collapse; font-size: 13px; }
+    .summary-table td { padding: 8px 12px; border: 1px solid #cbd5e1; }
+    .qr-box { display: inline-block; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px; text-align: center; font-size: 11px; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="no-print" style="max-width: 850px; margin: 0 auto 20px auto; text-align: right;">
+    <button onclick="window.print()" style="background: #0284c7; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer;">🖨️ Print / Save as PDF</button>
+  </div>
+
+  <div class="doc-container">
+    %s
+    <div class="header">
+      <div>
+        <div style="font-size: 26px; font-weight: 900; color: #0f172a;">🛡️ <span style="color: #2563eb;">Pay</span>ShieldX</div>
+        <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-top: 2px;">Payment Protection Plan</div>
+      </div>
+      <div style="text-align: right; font-size: 11px; line-height: 1.5; color: #475569;">
+        <strong style="color: #0f172a; font-size: 12px;">PayShield Technologies Pvt Ltd</strong><br>
+        6th Floor, Tower 2, Assotech Business Cresterra,<br>
+        Plot No. 22, Sec 135, Noida-201305, U.P.<br>
+        Call Us: +91 - 8920726073 / 9696969696<br>
+        E-mail: support@payshieldx.in | Website: www.payshieldx.in<br>
+        GST: 07AAACT0001A1Z9
+      </div>
+    </div>
+
+    <div class="title">Proposal</div>
+
+    <div class="meta-grid">
+      <div style="max-width: 55%%;">
+        <div style="font-weight: bold; color: #64748b; margin-bottom: 4px;">To,</div>
+        <div style="font-weight: bold; font-size: 14px; color: #0f172a;">%s</div>
+        <div style="font-weight: 600; color: #334155;">%s</div>
+        <div style="color: #64748b; margin-top: 2px;">%s</div>
+        <div style="margin-top: 4px; font-weight: 600; color: #0f172a;">GST : %s</div>
+      </div>
+
+      <div style="text-align: right; font-size: 12px; line-height: 1.6;">
+        <div><strong>Proposal ID :</strong> #%s</div>
+        <div><strong>Proposal Date :</strong> %s</div>
+        <div><strong>Valid Till :</strong> %s</div>
+        <div><strong>Status :</strong> <span style="color: #0284c7; font-weight: bold;">%s</span></div>
+        <div><strong>Approved On :</strong> %s</div>
+      </div>
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th style="width: 50px; text-align: center;">S.No.</th>
+          <th>Description & Deliverables</th>
+          <th style="width: 140px; text-align: right;">Amount (INR)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="text-align: center; font-weight: bold;">1.</td>
+          <td>
+            <div style="font-weight: bold; color: #0f172a; margin-bottom: 6px;">%s</div>
+            <div style="font-size: 12px; color: #64748b; line-height: 1.5;">
+              <strong>Supplier:</strong> %s (GST: %s)<br>
+              <strong>Milestone Structure:</strong> %s<br>
+              <strong>Delivery Timeline:</strong> %s
+            </div>
+          </td>
+          <td style="text-align: right; font-weight: bold; font-family: monospace;">₹%.2f</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px;">
+      <div class="qr-box">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=https://app.payshieldx.in/proposal/%s" width="95" height="95" alt="QR Code" style="display: block; margin: 0 auto 6px auto;">
+        <strong>Scan To Verify / Pay</strong>
+      </div>
+
+      <table class="summary-table">
+        <tr>
+          <td style="color: #64748b;">Total Price</td>
+          <td style="text-align: right; font-family: monospace;">₹%.2f</td>
+        </tr>
+        <tr>
+          <td style="color: #64748b;">Discount @ %.0f%%%%</td>
+          <td style="text-align: right; font-family: monospace; color: #dc2626;">(-)₹%.2f</td>
+        </tr>
+        <tr>
+          <td style="font-weight: bold; color: #0f172a;">Deal Amount</td>
+          <td style="text-align: right; font-weight: bold; font-family: monospace;">₹%.2f</td>
+        </tr>
+        <tr>
+          <td style="color: #64748b;">IGST / GST @ %.0f%%%%</td>
+          <td style="text-align: right; font-family: monospace;">₹%.2f</td>
+        </tr>
+        <tr style="background: #f8fafc; font-weight: bold; font-size: 14px;">
+          <td style="color: #0f172a;">Total Payable Amount</td>
+          <td style="text-align: right; font-family: monospace; color: #059669;">₹%.2f</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="margin-top: 36px; padding-top: 20px; border-top: 1px dashed #cbd5e1; font-size: 11px; color: #64748b; line-height: 1.6;">
+      <strong>Terms & Conditions:</strong><br>
+      1. Funds deposited for this trade deal are held in an RBI compliant ICICI Bank Escrow Nodal Account.<br>
+      2. Payouts to supplier are released strictly against verified milestones (Advance QC -> Dispatch LR -> Warehouse Delivery).<br>
+      3. In the event of a quality dispute, PayShieldX Arbitration Court provides binding settlement within 7 business days.
+    </div>
+  </div>
+</body>
+</html>`,
+		p.ProposalNumber,
+		approvedStamp,
+		p.BuyerSignatory,
+		p.BuyerName,
+		p.BuyerAddress,
+		p.BuyerGSTIN,
+		p.ProposalNumber,
+		p.CreatedAt.Format("02-Jan-2006"),
+		validDateStr,
+		p.Status,
+		apprDate,
+		p.ItemDescription,
+		p.SupplierName,
+		p.SupplierGSTIN,
+		p.MilestonesSummary,
+		p.DeliveryTimeline,
+		p.BaseAmount,
+		p.ID,
+		p.BaseAmount,
+		p.DiscountPercent,
+		p.DiscountAmount,
+		p.BaseAmount-p.DiscountAmount,
+		p.TaxPercent,
+		p.TaxAmount,
+		p.TotalPayableAmount,
+	)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(html))
 }
 
 func (h *Handler) RequestModification(w http.ResponseWriter, r *http.Request) {

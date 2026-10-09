@@ -104,26 +104,46 @@ type BankAccount struct {
 }
 
 type Proposal struct {
-	ID               string    `json:"id"`
-	OrderID          string    `json:"order_id"`
-	BuyerID          string    `json:"buyer_id"`
-	BuyerName        string    `json:"buyer_name,omitempty"`
-	SupplierID       string    `json:"supplier_id"`
-	SupplierName     string    `json:"supplier_name,omitempty"`
-	Amount           float64   `json:"amount"`
-	Currency         string    `json:"currency"`
-	Terms            string    `json:"terms"`
-	DeliveryTimeline string    `json:"delivery_timeline"`
-	Notes            string    `json:"notes"`
-	Status           string    `json:"status"`
-	PaymentStatus    string    `json:"payment_status"`
-	BuyerApproved    bool      `json:"buyer_approved"`
-	SupplierApproved bool      `json:"supplier_approved"`
-	LRNumber         string    `json:"lr_number,omitempty"`
-	TransporterName  string    `json:"transporter_name,omitempty"`
-	ProofURL         string    `json:"proof_url,omitempty"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID                 string     `json:"id"`
+	ProposalNumber     string     `json:"proposal_number"`
+	OrderID            string     `json:"order_id"`
+	BuyerID            string     `json:"buyer_id"`
+	BuyerName          string     `json:"buyer_name"`
+	BuyerSignatory     string     `json:"buyer_signatory,omitempty"`
+	BuyerEmail         string     `json:"buyer_email,omitempty"`
+	BuyerGSTIN         string     `json:"buyer_gstin,omitempty"`
+	BuyerAddress       string     `json:"buyer_address,omitempty"`
+	SupplierID         string     `json:"supplier_id"`
+	SupplierName       string     `json:"supplier_name"`
+	SupplierSignatory   string     `json:"supplier_signatory,omitempty"`
+	SupplierEmail       string     `json:"supplier_email,omitempty"`
+	SupplierGSTIN       string     `json:"supplier_gstin,omitempty"`
+	SupplierAddress     string     `json:"supplier_address,omitempty"`
+	ItemDescription    string     `json:"item_description,omitempty"`
+	BaseAmount         float64    `json:"base_amount"`
+	DiscountPercent    float64    `json:"discount_percent"`
+	DiscountAmount     float64    `json:"discount_amount"`
+	TaxPercent         float64    `json:"tax_percent"`
+	TaxAmount          float64    `json:"tax_amount"`
+	TotalPayableAmount float64    `json:"total_payable_amount"`
+	Amount             float64    `json:"amount"` // Total payable / deal amount
+	Currency           string     `json:"currency"`
+	Terms              string     `json:"terms"`
+	MilestonesSummary  string     `json:"milestones_summary,omitempty"`
+	DeliveryTimeline   string     `json:"delivery_timeline"`
+	Notes              string     `json:"notes"`
+	Status             string     `json:"status"` // PENDING_BUYER_APPROVAL, APPROVED, REJECTED, DISPATCHED, DELIVERED
+	PaymentStatus      string     `json:"payment_status"` // Pending Escrow, Payment Held in Escrow, Released
+	BuyerApproved      bool       `json:"buyer_approved"`
+	SupplierApproved   bool       `json:"supplier_approved"`
+	ContractID         string     `json:"contract_id,omitempty"`
+	LRNumber           string     `json:"lr_number,omitempty"`
+	TransporterName    string     `json:"transporter_name,omitempty"`
+	ProofURL           string     `json:"proof_url,omitempty"`
+	ValidTillDate      *time.Time `json:"valid_till_date,omitempty"`
+	ApprovedAt         *time.Time `json:"approved_at,omitempty"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
 type ProposalApproval struct {
