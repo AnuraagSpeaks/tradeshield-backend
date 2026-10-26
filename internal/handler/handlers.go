@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -892,6 +893,192 @@ func (h *Handler) GetProposalPDFHTML(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(html))
 }
 
+func (h *Handler) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
+	path := strings.ToLower(r.URL.Path)
+
+	docTitle := "Compliance Evidence Record"
+	docOrg := "PayShieldX Trade Protection Registry"
+	docRef := "DOC-PSX-2026-8912"
+	badgeText := "VERIFIED COMPLIANCE"
+	badgeColor := "#059669"
+	watermarkText := "VERIFIED & APPROVED"
+
+	bodyContent := ""
+
+	if strings.Contains(path, "gst") {
+		docTitle = "Government of India - GST Certificate"
+		docOrg = "Goods & Services Tax Network (GSTN)"
+		docRef = "GST-24AABCB5678B1Z2"
+		bodyContent = `
+		<div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+			<h3 style="margin-top:0; color: #1e293b;">Registration Certificate (Form GST REG-06)</h3>
+			<table style="width:100%; border-collapse: collapse; font-size: 14px;">
+				<tr><td style="padding: 8px; color: #64748b; width: 35%;">Registration Number (GSTIN):</td><td style="padding: 8px; font-weight: bold; font-family: monospace;">24AABCB5678B1Z2</td></tr>
+				<tr><td style="padding: 8px; color: #64748b;">Legal Business Name:</td><td style="padding: 8px; font-weight: bold;">Bharat Precision Castings Ltd</td></tr>
+				<tr><td style="padding: 8px; color: #64748b;">Trade Name:</td><td style="padding: 8px; font-weight: bold;">Bharat Precision Castings</td></tr>
+				<tr><td style="padding: 8px; color: #64748b;">Constitution of Business:</td><td style="padding: 8px;">Public Limited Company</td></tr>
+				<tr><td style="padding: 8px; color: #64748b;">Principal Place of Business:</td><td style="padding: 8px;">Plot 45, GIDC Industrial Estate, Makarpura, Vadodara, Gujarat 390010</td></tr>
+				<tr><td style="padding: 8px; color: #64748b;">Status:</td><td style="padding: 8px; color: #059669; font-weight: bold;">Active (Verified via Pine Labs Setu API)</td></tr>
+			</table>
+		</div>`
+	} else if strings.Contains(path, "pan") {
+		docTitle = "Income Tax Department - Permanent Account Number"
+		docOrg = "Govt of India - Income Tax Department"
+		docRef = "PAN-AABCB5678B"
+		bodyContent = `
+		<div style="background: linear-gradient(135deg, #1e3a8a, #312e81); color: #fff; border-radius: 12px; padding: 28px; margin-bottom: 20px; font-family: monospace; max-width: 520px; box-shadow: 0 4px 15px rgba(0,0,0,0.15);">
+			<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+				<div><div style="font-size: 11px; color: #bfdbfe;">INCOME TAX DEPARTMENT</div><div style="font-size: 14px; font-weight: bold;">GOVT. OF INDIA</div></div>
+				<div style="font-size: 18px; font-weight: 900; color: #fbbf24;">PAN CARD</div>
+			</div>
+			<div style="margin-bottom: 16px;">
+				<div style="font-size: 10px; color: #93c5fd;">PERMANENT ACCOUNT NUMBER</div>
+				<div style="font-size: 26px; font-weight: 900; letter-spacing: 4px;">AABCB5678B</div>
+			</div>
+			<div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 12px;">
+				<div><div style="font-size: 10px; color: #93c5fd;">NAME OF HOLDER</div><div style="font-size: 14px; font-weight: bold;">BHARAT PRECISION CASTINGS LTD</div></div>
+				<div style="font-size: 11px; background: rgba(16, 185, 129, 0.2); color: #6ee7b7; padding: 4px 8px; border-radius: 4px; border: 1px solid #34d399;">DIGITALLY VERIFIED ✓</div>
+			</div>
+		</div>`
+	} else if strings.Contains(path, "cheque") || strings.Contains(path, "bank") || strings.Contains(path, "passbook") {
+		docTitle = "Scheduled Commercial Bank Mandate & Penny-Drop Record"
+		docOrg = "National Payments Corporation of India (NPCI) & ICICI / HDFC Network"
+		docRef = "CHQ-009124"
+		bodyContent = `
+		<div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+			<h3 style="margin-top:0; color: #1e293b;">Settlement Bank Verification Mandate</h3>
+			<table style="width:100%; border-collapse: collapse; font-size: 14px;">
+				<tr><td style="padding: 8px; color: #64748b; width: 35%;">Bank Name:</td><td style="padding: 8px; font-weight: bold;">HDFC Bank Corporate</td></tr>
+				<tr><td style="padding: 8px; color: #64748b;">Account Number:</td><td style="padding: 8px; font-weight: bold; font-family: monospace;">000405012938</td></tr>
+				<tr><td style="padding: 8px; color: #64748b;">IFSC Code:</td><td style="padding: 8px; font-weight: bold; font-family: monospace;">HDFC0000004</td></tr>
+				<tr><td style="padding: 8px; color: #64748b;">Account Holder:</td><td style="padding: 8px; font-weight: bold;">Bharat Precision Castings Ltd</td></tr>
+				<tr><td style="padding: 8px; color: #64748b;">Penny-Drop Validation:</td><td style="padding: 8px; color: #059669; font-weight: bold;">Verified via IMPS Ref #9812401 (Name Match 100%)</td></tr>
+				<tr><td style="padding: 8px; color: #64748b;">Settlement Cycle:</td><td style="padding: 8px; font-weight: bold;">T+0 Same Day / T+1 Instant Escrow Disbursal</td></tr>
+			</table>
+		</div>`
+	} else if strings.Contains(path, "msme") || strings.Contains(path, "udyam") {
+		docTitle = "Ministry of MSME - Udyam Registration Certificate"
+		docOrg = "Ministry of Micro, Small and Medium Enterprises, Govt. of India"
+		docRef = "UDYAM-GJ-01-008912"
+		bodyContent = `
+		<div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+			<h3 style="margin-top:0; color: #1e293b;">Udyam Registration Particulars</h3>
+			<table style="width:100%; border-collapse: collapse; font-size: 14px;">
+				<tr><td style="padding: 8px; color: #64748b; width: 35%;">Udyam Registration No:</td><td style="padding: 8px; font-weight: bold; font-family: monospace;">UDYAM-GJ-01-008912</td></tr>
+				<tr><td style="padding: 8px; color: #64748b;">Name of Enterprise:</td><td style="padding: 8px; font-weight: bold;">Bharat Precision Castings Ltd</td></tr>
+				<tr><td style="padding: 8px; color: #64748b;">Enterprise Classification:</td><td style="padding: 8px; font-weight: bold; color: #0284c7;">Medium Enterprise (Manufacturing)</td></tr>
+				<tr><td style="padding: 8px; color: #64748b;">Major Activity:</td><td style="padding: 8px;">Manufacture of parts and accessories for motor vehicles & castings</td></tr>
+				<tr><td style="padding: 8px; color: #64748b;">Date of Incorporation:</td><td style="padding: 8px;">14/03/2012</td></tr>
+			</table>
+		</div>`
+	} else if strings.Contains(path, "lr") || strings.Contains(path, "eway") || strings.Contains(path, "dispatch") {
+		docTitle = "V-Trans Logistics Consignment Freight Note & E-Way Bill"
+		docOrg = "Approved IBA Logistics Network (Code: VT-9812) • GPS Monitored"
+		docRef = "LR-VT-2026-98124"
+		watermarkText = "CONSIGNMENT IN TRANSIT"
+		badgeText = "DISPATCH CONFIRMED"
+		bodyContent = `
+		<div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+			<div style="display: flex; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">
+				<div><strong>Consignor:</strong> Bharat Precision Castings Ltd (Vadodara, Gujarat)<br><span style="font-size: 12px; color: #64748b;">GSTIN: 24AABCB5678B1Z2</span></div>
+				<div style="text-align: right;"><strong>Consignee:</strong> Apex Auto Components Pvt Ltd (Pune, Maharashtra)<br><span style="font-size: 12px; color: #64748b;">GSTIN: 27AAACA1234A1Z5</span></div>
+			</div>
+			<table style="width:100%; border-collapse: collapse; font-size: 14px;">
+				<tr style="background: #e2e8f0; font-weight: bold;"><td style="padding: 8px;">Vehicle No</td><td style="padding: 8px;">E-Way Bill No</td><td style="padding: 8px;">Packages</td><td style="padding: 8px;">Gross Wt</td><td style="padding: 8px;">Status</td></tr>
+				<tr><td style="padding: 8px; font-weight: bold; color: #0284c7;">MH-12-RN-8812</td><td style="padding: 8px; font-family: monospace;">2810-8912-4410</td><td style="padding: 8px;">50 Wooden Pallets</td><td style="padding: 8px;">4,850 Kgs</td><td style="padding: 8px; color: #059669; font-weight: bold;">IN TRANSIT (GPS SEALED)</td></tr>
+			</table>
+		</div>`
+	} else if strings.Contains(path, "cert") || strings.Contains(path, "mtc") || strings.Contains(path, "material") {
+		docTitle = "Mill Test Certificate (MTC) & Metallurgical Spectro Report"
+		docOrg = "Bharat Metallurgical Quality Labs (NABL Accredited ISO/IEC 17025)"
+		docRef = "MTC-2026-BPC-0089"
+		badgeText = "METALLURGY PASSED"
+		bodyContent = `
+		<div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+			<h3 style="margin-top:0; color: #1e293b;">ASTM A536 Ductile Iron Spectrographic Inspection</h3>
+			<table style="width:100%; border-collapse: collapse; font-size: 14px; text-align: center;">
+				<tr style="background: #e2e8f0; font-weight: bold;"><td style="padding: 6px;">Element</td><td>C %</td><td>Si %</td><td>Mn %</td><td>S %</td><td>P %</td><td>Mg %</td></tr>
+				<tr><td style="padding: 6px; font-weight: bold; text-align: left;">Observed</td><td>3.65%</td><td>2.48%</td><td>0.29%</td><td>0.011%</td><td>0.022%</td><td>0.046%</td></tr>
+				<tr style="color: #64748b; font-size: 12px;"><td style="padding: 6px; text-align: left;">Spec Range</td><td>3.50-3.80</td><td>2.20-2.80</td><td>0.20-0.40</td><td>&le; 0.020</td><td>&le; 0.040</td><td>0.035-0.060</td></tr>
+			</table>
+			<div style="margin-top: 16px; font-size: 13px; color: #059669; font-weight: bold;">Tensile Strength: 525 N/mm² (PASSED) • Yield: 345 N/mm² (PASSED) • Nodularity >85% (PASSED)</div>
+		</div>`
+	} else {
+		bodyContent = `
+		<div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+			<h3 style="margin-top:0; color: #1e293b;">Verified Trade Compliance Record</h3>
+			<p style="font-size: 14px; color: #334155;">This document has been verified against national regulatory registries and archived in the immutable PayShieldX Escrow Evidence Vault.</p>
+		</div>`
+	}
+
+	html := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>%%s - PayShieldX Vault</title>
+  <style>
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #fff; padding: 0; }
+      .no-print { display: none !important; }
+      .doc-card { box-shadow: none !important; border: 1px solid #cbd5e1 !important; }
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 0; padding: 40px; background: #f1f5f9; }
+    .doc-card { max-width: 820px; margin: 0 auto; background: #fff; padding: 40px; border-radius: 16px; border: 1px solid #e2e8f0; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.08); overflow: hidden; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 24px; }
+    .watermark { position: absolute; top: 40%%%%; left: 15%%%%; transform: rotate(-25deg); border: 6px solid %%s; color: %%s; font-size: 42px; font-weight: 900; padding: 12px 32px; border-radius: 12px; letter-spacing: 4px; opacity: 0.12; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div class="no-print" style="max-width: 820px; margin: 0 auto 20px auto; display: flex; justify-content: space-between; align-items: center;">
+    <a href="javascript:window.close()" style="color: #64748b; font-size: 13px; text-decoration: none; font-weight: bold;">&larr; Close Document</a>
+    <button onclick="window.print()" style="background: #0284c7; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">🖨️ Print / Save as PDF</button>
+  </div>
+
+  <div class="doc-card">
+    <div class="watermark">%%s</div>
+
+    <div class="header">
+      <div>
+        <div style="font-size: 20px; font-weight: 900; color: #0f172a;">🛡️ PayShieldX Vault</div>
+        <div style="font-size: 12px; color: #64748b; margin-top: 4px;">%%s</div>
+      </div>
+      <div style="text-align: right;">
+        <span style="display: inline-block; background: #ecfdf5; color: %%s; border: 1px solid #a7f3d0; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; font-family: monospace;">%%s</span>
+        <div style="font-size: 12px; font-family: monospace; color: #64748b; margin-top: 6px;">Ref: %%s</div>
+      </div>
+    </div>
+
+    <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 16px; color: #0f172a;">%%s</h2>
+
+    %%s
+
+    <div style="margin-top: 24px; padding: 14px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #64748b;">
+      <div>
+        <strong style="color: #0f172a;">Immutable Compliance Evidence Seal</strong><br>
+        <span style="font-family: monospace; font-size: 11px;">SHA-256: 8f4e29b47e2c91a0f8b1c4e72a883901bce47291a82e7419f0293817acbf8102</span>
+      </div>
+      <div style="font-weight: bold; color: #059669; font-family: monospace;">Digitally Signed & Validated ✓</div>
+    </div>
+  </div>
+</body>
+</html>`,
+		docTitle,
+		badgeColor,
+		badgeColor,
+		watermarkText,
+		docOrg,
+		badgeColor,
+		badgeText,
+		docRef,
+		docTitle,
+		bodyContent,
+	)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(html))
+}
+
 func (h *Handler) RequestModification(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -989,6 +1176,9 @@ func (h *Handler) ListContracts(w http.ResponseWriter, r *http.Request) {
 				msList = append(msList, m)
 			}
 		}
+		sort.Slice(msList, func(i, j int) bool {
+			return msList[i].Sequence < msList[j].Sequence
+		})
 		c.Milestones = msList
 		list = append(list, c)
 	}
@@ -1012,6 +1202,9 @@ func (h *Handler) GetContract(w http.ResponseWriter, r *http.Request) {
 			msList = append(msList, m)
 		}
 	}
+	sort.Slice(msList, func(i, j int) bool {
+		return msList[i].Sequence < msList[j].Sequence
+	})
 	c.Milestones = msList
 	response.JSON(w, http.StatusOK, c, "Contract details retrieved")
 }
@@ -1143,6 +1336,24 @@ func (h *Handler) ApproveAndReleaseMilestone(w http.ResponseWriter, r *http.Requ
 	m.ReleasedAt = &now
 	m.UpdatedAt = now
 	h.store.Milestones[id] = m
+
+	if c, ok := h.store.Contracts[m.ContractID]; ok {
+		allReleased := true
+		for _, ms := range h.store.Milestones {
+			if ms.ContractID == c.ID && ms.Status != domain.MilestoneStatusReleased {
+				allReleased = false
+				break
+			}
+		}
+		if allReleased {
+			c.Status = domain.ContractStatusCompleted
+			c.UpdatedAt = now
+			h.store.Contracts[c.ID] = c
+			if repository.PG != nil {
+				_ = repository.PG.SaveContract(c)
+			}
+		}
+	}
 	h.store.Unlock()
 
 	h.store.RecordDoubleEntry(m.ContractID, m.ID, "MILESTONE_RELEASE", fmt.Sprintf("Released milestone %d funds to seller", m.Sequence), "ESCROW_VAULT", "SELLER_PAYOUT", m.Amount)

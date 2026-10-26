@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -66,6 +67,8 @@ func setupTestRouter() http.Handler {
 		r.Get("/admin/finance", h.GetAdminFinance)
 		r.Post("/admin/kyc/{userId}/verify", h.VerifyAdminKYC)
 		r.Post("/admin/settlements/{id}/payout", h.ProcessAdminSettlement)
+
+		r.Get("/documents/*", h.GetDocumentPreview)
 	})
 	return r
 }
@@ -292,4 +295,32 @@ func TestAdminEndpoints(t *testing.T) {
 		t.Fatalf("Expected finance status 200, got %d", w.Code)
 	}
 }
+
+func TestDocumentVaultPreviews(t *testing.T) {
+	r := setupTestRouter()
+
+	testPaths := []string{
+		"/api/v1/documents/kyc/gst_bharat.pdf",
+		"/api/v1/documents/kyc/pan_bharat.pdf",
+		"/api/v1/documents/kyc/cheque_bharat.pdf",
+		"/api/v1/documents/kyc/msme_bharat.pdf",
+		"/api/v1/documents/proofs/eway_bill_lr_089.pdf",
+		"/api/v1/documents/proofs/raw_material_cert_089.pdf",
+	}
+
+	for _, p := range testPaths {
+		req := httptest.NewRequest("GET", p, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Path %s returned status %d, expected 200", p, w.Code)
+		}
+		contentType := w.Header().Get("Content-Type")
+		if !strings.Contains(contentType, "text/html") {
+			t.Errorf("Path %s returned content-type %s, expected text/html", p, contentType)
+		}
+	}
+}
+
 

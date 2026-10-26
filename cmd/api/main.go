@@ -77,6 +77,7 @@ func main() {
 	// Top-level aliases for direct compliance with integration specs
 	r.Post("/api/create-order", h.CreateOrder)
 	r.Post("/api/verify-payment", h.VerifyPayment)
+	r.Get("/documents/*", h.GetDocumentPreview)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -148,6 +149,9 @@ func main() {
 
 		// GST lookup endpoint
 		r.Post("/gst/lookup", h.GSTLookup)
+
+		// Document vault preview endpoint
+		r.Get("/documents/*", h.GetDocumentPreview)
 	})
 
 	port := os.Getenv("PORT")
