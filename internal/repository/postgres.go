@@ -226,6 +226,7 @@ func (p *PostgresStore) SaveUser(u domain.User) error {
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		ON CONFLICT (id) DO UPDATE SET
 			email = EXCLUDED.email,
+			password = EXCLUDED.password,
 			business_name = EXCLUDED.business_name,
 			gst = EXCLUDED.gst,
 			mobile = EXCLUDED.mobile,

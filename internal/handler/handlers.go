@@ -3,7 +3,9 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -46,10 +48,14 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	defer h.store.RUnlock()
 
 	reqEmail := strings.ToLower(strings.TrimSpace(req.Email))
+	if reqEmail == "" || !strings.Contains(reqEmail, "@") {
+		response.Error(w, http.StatusBadRequest, "A valid email address containing '@' is required")
+		return
+	}
 
 	for _, u := range h.store.Users {
 		if strings.ToLower(u.Email) == reqEmail {
-			if req.Password != "" && u.Password != "" && u.Password != req.Password {
+			if u.Password != "" && req.Password != u.Password {
 				response.Error(w, http.StatusUnauthorized, "Invalid password credentials")
 				return
 			}
@@ -275,7 +281,7 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	defer h.store.Unlock()
 
 	otpRec, ok := h.store.OTPs[key]
-	isBypass := cleanOTP == "849201" || cleanOTP == "123456"
+	isBypass := (cleanOTP == "849201" || cleanOTP == "123456") && os.Getenv("ENV") == "test" && cleanEmail != "admin@payshieldx.in"
 
 	if !isBypass {
 		if !ok || time.Now().After(otpRec.ExpiresAt) || otpRec.OTP != cleanOTP {
@@ -437,8 +443,16 @@ func (h *Handler) CreateProposal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	discPct := req.DiscountPercent
+	if discPct < 0 || discPct > 100 {
+		response.Error(w, http.StatusBadRequest, "Discount percent must be between 0 and 100")
+		return
+	}
 	discAmt := baseAmt * (discPct / 100.0)
 	dealAmt := baseAmt - discAmt
+	if dealAmt <= 0 {
+		response.Error(w, http.StatusBadRequest, "Deal amount after discount must be greater than zero")
+		return
+	}
 
 	taxPct := req.TaxPercent
 	if taxPct <= 0 {
@@ -608,6 +622,33 @@ func (h *Handler) ApproveProposal(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		h.store.Unlock()
 		response.Error(w, http.StatusNotFound, "Proposal not found")
+		return
+	}
+
+	if p.ValidTillDate != nil && time.Now().After(*p.ValidTillDate) {
+		h.store.Unlock()
+		response.Error(w, http.StatusBadRequest, "Proposal validity has expired. Please request an updated proposal.")
+		return
+	}
+
+	// 1. Supplier Approval Phase
+	if req.Role == "supplier" {
+		p.SupplierApproved = true
+		p.Status = "PENDING_BUYER_APPROVAL"
+		p.UpdatedAt = time.Now()
+		h.store.Proposals[id] = p
+		if repository.PG != nil {
+			repository.PG.SaveProposal(p)
+		}
+		h.store.Unlock()
+		response.JSON(w, http.StatusOK, p, "Supplier approved proposal")
+		return
+	}
+
+	// 2. Buyer Approval Phase (Locks deal into Escrow Contract)
+	if p.BuyerApproved || p.Status == "APPROVED" {
+		h.store.Unlock()
+		response.Error(w, http.StatusBadRequest, "Proposal has already been approved and secured in Escrow")
 		return
 	}
 
@@ -863,20 +904,20 @@ func (h *Handler) GetProposalPDFHTML(w http.ResponseWriter, r *http.Request) {
 </html>`,
 		p.ProposalNumber,
 		approvedStamp,
-		p.BuyerSignatory,
-		p.BuyerName,
-		p.BuyerAddress,
-		p.BuyerGSTIN,
+		html.EscapeString(p.BuyerSignatory),
+		html.EscapeString(p.BuyerName),
+		html.EscapeString(p.BuyerAddress),
+		html.EscapeString(p.BuyerGSTIN),
 		p.ProposalNumber,
 		p.CreatedAt.Format("02-Jan-2006"),
 		validDateStr,
 		p.Status,
 		apprDate,
-		p.ItemDescription,
-		p.SupplierName,
-		p.SupplierGSTIN,
-		p.MilestonesSummary,
-		p.DeliveryTimeline,
+		html.EscapeString(p.ItemDescription),
+		html.EscapeString(p.SupplierName),
+		html.EscapeString(p.SupplierGSTIN),
+		html.EscapeString(p.MilestonesSummary),
+		html.EscapeString(p.DeliveryTimeline),
 		p.BaseAmount,
 		p.ID,
 		p.BaseAmount,
@@ -1015,7 +1056,7 @@ func (h *Handler) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>%%s - PayShieldX Vault</title>
+  <title>%s - PayShieldX Vault</title>
   <style>
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #fff; padding: 0; }
@@ -1025,7 +1066,7 @@ func (h *Handler) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 0; padding: 40px; background: #f1f5f9; }
     .doc-card { max-width: 820px; margin: 0 auto; background: #fff; padding: 40px; border-radius: 16px; border: 1px solid #e2e8f0; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.08); overflow: hidden; }
     .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 24px; }
-    .watermark { position: absolute; top: 40%%%%; left: 15%%%%; transform: rotate(-25deg); border: 6px solid %%s; color: %%s; font-size: 42px; font-weight: 900; padding: 12px 32px; border-radius: 12px; letter-spacing: 4px; opacity: 0.12; pointer-events: none; }
+    .watermark { position: absolute; top: 40%%; left: 15%%; transform: rotate(-25deg); border: 6px solid %s; color: %s; font-size: 42px; font-weight: 900; padding: 12px 32px; border-radius: 12px; letter-spacing: 4px; opacity: 0.12; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -1035,22 +1076,22 @@ func (h *Handler) GetDocumentPreview(w http.ResponseWriter, r *http.Request) {
   </div>
 
   <div class="doc-card">
-    <div class="watermark">%%s</div>
+    <div class="watermark">%s</div>
 
     <div class="header">
       <div>
         <div style="font-size: 20px; font-weight: 900; color: #0f172a;">🛡️ PayShieldX Vault</div>
-        <div style="font-size: 12px; color: #64748b; margin-top: 4px;">%%s</div>
+        <div style="font-size: 12px; color: #64748b; margin-top: 4px;">%s</div>
       </div>
       <div style="text-align: right;">
-        <span style="display: inline-block; background: #ecfdf5; color: %%s; border: 1px solid #a7f3d0; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; font-family: monospace;">%%s</span>
-        <div style="font-size: 12px; font-family: monospace; color: #64748b; margin-top: 6px;">Ref: %%s</div>
+        <span style="display: inline-block; background: #ecfdf5; color: %s; border: 1px solid #a7f3d0; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; font-family: monospace;">%s</span>
+        <div style="font-size: 12px; font-family: monospace; color: #64748b; margin-top: 6px;">Ref: %s</div>
       </div>
     </div>
 
-    <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 16px; color: #0f172a;">%%s</h2>
+    <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 16px; color: #0f172a;">%s</h2>
 
-    %%s
+    %s
 
     <div style="margin-top: 24px; padding: 14px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #64748b;">
       <div>
@@ -1088,6 +1129,11 @@ func (h *Handler) RequestModification(w http.ResponseWriter, r *http.Request) {
 	p, ok := h.store.Proposals[id]
 	if !ok {
 		response.Error(w, http.StatusNotFound, "Proposal not found")
+		return
+	}
+
+	if p.Status == "APPROVED" || p.BuyerApproved {
+		response.Error(w, http.StatusBadRequest, "Cannot request modification on an already approved proposal")
 		return
 	}
 
@@ -1144,6 +1190,12 @@ func (h *Handler) ConfirmDeliveryProposal(w http.ResponseWriter, r *http.Request
 	if !ok {
 		h.store.Unlock()
 		response.Error(w, http.StatusNotFound, "Proposal not found")
+		return
+	}
+
+	if p.PaymentStatus == "Payment Released" {
+		h.store.Unlock()
+		response.Error(w, http.StatusBadRequest, "Delivery has already been confirmed and payment released")
 		return
 	}
 
@@ -1298,6 +1350,12 @@ func (h *Handler) SubmitMilestoneProof(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		h.store.Unlock()
 		response.Error(w, http.StatusNotFound, "Milestone not found")
+		return
+	}
+
+	if m.Status == domain.MilestoneStatusReleased {
+		h.store.Unlock()
+		response.Error(w, http.StatusBadRequest, "Cannot submit deliverable proof for an already released milestone")
 		return
 	}
 
@@ -1538,6 +1596,19 @@ func (h *Handler) ArbitrateDispute(w http.ResponseWriter, r *http.Request) {
 	disp, ok := h.store.Disputes[id]
 	if !ok {
 		response.Error(w, http.StatusNotFound, "Dispute record not found")
+		return
+	}
+
+	if disp.Status == domain.DisputeStatusResolvedRefund || disp.Status == domain.DisputeStatusResolvedReleased {
+		response.Error(w, http.StatusBadRequest, "Dispute has already been arbitrated and settled")
+		return
+	}
+	if req.BuyerRefundShare < 0 || req.SellerReleaseShare < 0 {
+		response.Error(w, http.StatusBadRequest, "Arbitration shares cannot be negative")
+		return
+	}
+	if disp.ClaimAmount > 0 && (req.BuyerRefundShare+req.SellerReleaseShare > disp.ClaimAmount*1.05) {
+		response.Error(w, http.StatusBadRequest, fmt.Sprintf("Total arbitrated sum (₹%.2f) exceeds disputed claim amount (₹%.2f)", req.BuyerRefundShare+req.SellerReleaseShare, disp.ClaimAmount))
 		return
 	}
 
@@ -1838,20 +1909,14 @@ func (h *Handler) GetAdminStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 3. Calculate strictly from Proposals & Contracts
-	totalProposals = len(h.store.Proposals) + len(h.store.Contracts)
+	// 3. Calculate strictly from Proposals & Contracts (no double counting)
+	totalProposals = len(h.store.Proposals)
 	for _, p := range h.store.Proposals {
-		if p.Status == "Pending" || p.PaymentStatus == "Unpaid" {
+		if !p.BuyerApproved || p.Status != "APPROVED" {
 			pendingProposals++
-		} else if p.BuyerApproved && p.SupplierApproved {
-			approvedProposals++
 		}
 		if p.PaymentStatus == "Dispute Raised" {
 			disputedCount++
-		}
-		platformFeeTotal += p.Amount * 0.0075
-		if p.CreatedAt.After(todayStart) && (p.PaymentStatus == "Payment Held in Escrow" || p.PaymentStatus == "Confirmed") {
-			todayCollection += p.Amount
 		}
 	}
 
@@ -2010,17 +2075,29 @@ func (h *Handler) GetAdminFinance(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) VerifyAdminKYC(w http.ResponseWriter, r *http.Request) {
 	userId := chi.URLParam(r, "userId")
+	if userId == "" {
+		response.Error(w, http.StatusBadRequest, "User ID is required")
+		return
+	}
 	var req struct {
 		Status string `json:"status"` // Approved / Rejected
 		Notes  string `json:"notes"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 
+	if req.Status != "Approved" && req.Status != "Rejected" {
+		response.Error(w, http.StatusBadRequest, "Invalid KYC status: must be 'Approved' or 'Rejected'")
+		return
+	}
+
 	h.store.Lock()
 	defer h.store.Unlock()
 
+	found := false
+
 	// 1. Update Supplier if exists
 	if sp, ok := h.store.Suppliers[userId]; ok {
+		found = true
 		sp.VerificationStatus = req.Status
 		if req.Status == "Approved" {
 			sp.AccountStatus = "Active"
@@ -2035,6 +2112,7 @@ func (h *Handler) VerifyAdminKYC(w http.ResponseWriter, r *http.Request) {
 
 	// 2. Update Buyer if exists
 	if b, ok := h.store.Buyers[userId]; ok {
+		found = true
 		b.KYCStatus = req.Status
 		if req.Status == "Approved" {
 			b.AccountStatus = "Active"
@@ -2049,12 +2127,18 @@ func (h *Handler) VerifyAdminKYC(w http.ResponseWriter, r *http.Request) {
 
 	// 3. Update User if exists
 	if u, ok := h.store.Users[userId]; ok {
+		found = true
 		u.Verified = (req.Status == "Approved")
 		u.IsVerified = u.Verified
 		h.store.Users[userId] = u
 		if repository.PG != nil {
 			_ = repository.PG.SaveUser(u)
 		}
+	}
+
+	if !found {
+		response.Error(w, http.StatusNotFound, fmt.Sprintf("User or entity with ID '%s' not found", userId))
+		return
 	}
 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
@@ -2067,32 +2151,37 @@ func (h *Handler) VerifyAdminKYC(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ProcessAdminSettlement(w http.ResponseWriter, r *http.Request) {
 	settlementId := chi.URLParam(r, "id")
-	utr := fmt.Sprintf("ICICR52026%08d", time.Now().UnixNano()%100000000)
-	now := time.Now()
-
-	h.store.Lock()
-	defer h.store.Unlock()
-
-	if st, ok := h.store.Settlements[settlementId]; ok {
-		st.Status = "SETTLED"
-		st.UTRNumber = utr
-		h.store.Settlements[settlementId] = st
-		if repository.PG != nil {
-			_ = repository.PG.SaveSettlement(st)
-		}
-
-		// Record Double Entry in Ledger
-		h.store.RecordDoubleEntry("", "", "SETTLEMENT_DISBURSAL", fmt.Sprintf("Disbursed settlement %s to %s via ICICI IMPS (UTR: %s)", st.SettlementID, st.SupplierName, utr), "ESCROW_VAULT_ICICI", "BANK_SETTLEMENT_OUTFLOW", st.Amount)
-
-		response.JSON(w, http.StatusOK, st, fmt.Sprintf("Settlement %s successfully disbursed and recorded in database (UTR: %s)", settlementId, utr))
+	if settlementId == "" {
+		response.Error(w, http.StatusBadRequest, "Settlement ID is required")
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"settlement_id": settlementId,
-		"status":        "SETTLED",
-		"utr_number":    utr,
-		"disbursed_at":  now,
-	}, fmt.Sprintf("Settlement %s successfully disbursed via RBI Nodal Escrow (UTR: %s)", settlementId, utr))
+	h.store.Lock()
+	st, ok := h.store.Settlements[settlementId]
+	if !ok {
+		h.store.Unlock()
+		response.Error(w, http.StatusNotFound, fmt.Sprintf("Settlement with ID '%s' not found", settlementId))
+		return
+	}
+
+	if st.Status == "SETTLED" {
+		h.store.Unlock()
+		response.Error(w, http.StatusBadRequest, fmt.Sprintf("Settlement %s has already been disbursed with UTR %s", settlementId, st.UTRNumber))
+		return
+	}
+
+	utr := fmt.Sprintf("ICICR52026%08d", time.Now().UnixNano()%100000000)
+	st.Status = "SETTLED"
+	st.UTRNumber = utr
+	h.store.Settlements[settlementId] = st
+	if repository.PG != nil {
+		_ = repository.PG.SaveSettlement(st)
+	}
+	h.store.Unlock()
+
+	// Record Double Entry in Ledger
+	h.store.RecordDoubleEntry("", "", "SETTLEMENT_DISBURSAL", fmt.Sprintf("Disbursed settlement %s to %s via ICICI IMPS (UTR: %s)", st.SettlementID, st.SupplierName, utr), "ESCROW_VAULT_ICICI", "BANK_SETTLEMENT_OUTFLOW", st.Amount)
+
+	response.JSON(w, http.StatusOK, st, fmt.Sprintf("Settlement %s successfully disbursed and recorded in database (UTR: %s)", settlementId, utr))
 }
 

@@ -34,7 +34,15 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, "Amount must be at least 100 paise (₹1.00)")
 		return
 	}
+	if req.Amount > 1000000000 { // ₹1 Crore
+		response.Error(w, http.StatusBadRequest, "Amount exceeds maximum single checkout limit (₹1,00,00,000)")
+		return
+	}
 
+	if req.Currency != "" && req.Currency != "INR" {
+		response.Error(w, http.StatusBadRequest, "Only INR currency is currently supported")
+		return
+	}
 	if req.Currency == "" {
 		req.Currency = "INR"
 	}

@@ -4,6 +4,7 @@ import (
     "encoding/json"
     "fmt"
     "net/http"
+    "strings"
 
     "tradeshield-backend/internal/pkg/pinelabs"
     "tradeshield-backend/internal/pkg/response"
@@ -30,13 +31,18 @@ func (h *Handler) GSTLookup(w http.ResponseWriter, r *http.Request) {
         response.Error(w, http.StatusBadRequest, "Invalid request payload")
         return
     }
-    if req.GSTIN == "" {
+    gstin := strings.ToUpper(strings.TrimSpace(req.GSTIN))
+    if gstin == "" {
         response.Error(w, http.StatusBadRequest, "gstin is required")
         return
     }
-    gstResp, err := pinelabs.LookupGST(req.GSTIN)
+    if len(gstin) != 15 {
+        response.Error(w, http.StatusBadRequest, "Invalid GSTIN length: must be exactly 15 alphanumeric characters")
+        return
+    }
+    gstResp, err := pinelabs.LookupGST(gstin)
     if err != nil {
-        response.Error(w, http.StatusInternalServerError, fmt.Sprintf("GST lookup failed: %v", err))
+        response.Error(w, http.StatusBadRequest, fmt.Sprintf("GST lookup failed: %v", err))
         return
     }
     res := GSTLookupRes{
