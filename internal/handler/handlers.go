@@ -81,7 +81,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		city = "Vadodara"
 	} else if strings.Contains(reqEmail, "admin") || strings.Contains(reqEmail, "court") || strings.Contains(reqEmail, "arbiter") || req.Role == "admin" {
 		role = domain.RoleAdmin
-		bizName = "PayShield Neutral Arbitration Panel"
+		bizName = "PayShield Admin"
 		gst = "07AAACT0001A1Z9"
 		city = "New Delhi"
 	}
@@ -897,7 +897,7 @@ func (h *Handler) GetProposalPDFHTML(w http.ResponseWriter, r *http.Request) {
       <strong>Terms & Conditions:</strong><br>
       1. Funds deposited for this trade deal are held in an RBI compliant ICICI Bank Escrow Nodal Account.<br>
       2. Payouts to supplier are released strictly against verified milestones (Advance QC -> Dispatch LR -> Warehouse Delivery).<br>
-      3. In the event of a quality dispute, PayShieldX Arbitration Court provides binding settlement within 7 business days.
+      3. In the event of a quality dispute, PayShield Admin provides binding settlement within 7 business days.
     </div>
   </div>
 </body>
