@@ -53,57 +53,39 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var foundUser *domain.User
 	for _, u := range h.store.Users {
-		if strings.ToLower(u.Email) == reqEmail {
-			if u.Password != "" && req.Password != u.Password {
-				response.Error(w, http.StatusUnauthorized, "Invalid password credentials")
-				return
-			}
-			t, _ := token.GenerateToken(u.ID, u.Email, u.Role, u.OrganizationID)
-			response.JSON(w, http.StatusOK, map[string]interface{}{
-				"token": t,
-				"user":  u,
-			}, "Login successful")
-			return
+		if strings.ToLower(strings.TrimSpace(u.Email)) == reqEmail {
+			userCopy := u
+			foundUser = &userCopy
+			break
 		}
 	}
 
-	// Dynamic authentication fallback preserving role fidelity
-	role := domain.RoleBuyer
-	bizName := "Apex Auto Components Pvt Ltd"
-	gst := "27AAACA1234A1Z5"
-	city := "Pune"
-
-	if strings.Contains(reqEmail, "supplier") || strings.Contains(reqEmail, "seller") || strings.Contains(reqEmail, "bharat") || strings.Contains(reqEmail, "castings") || req.Role == "supplier" {
-		role = domain.RoleSupplier
-		bizName = "Bharat Precision Castings Ltd"
-		gst = "24AABCB5678B1Z2"
-		city = "Vadodara"
-	} else if strings.Contains(reqEmail, "admin") || strings.Contains(reqEmail, "court") || strings.Contains(reqEmail, "arbiter") || req.Role == "admin" {
-		role = domain.RoleAdmin
-		bizName = "PayShield Admin"
-		gst = "07AAACT0001A1Z9"
-		city = "New Delhi"
+	if foundUser == nil {
+		response.Error(w, http.StatusUnauthorized, "Invalid email or password credentials")
+		return
 	}
 
-	u := domain.User{
-		ID:           "user_" + uuid.New().String()[:8],
-		Email:        reqEmail,
-		FullName:     "Authorized Signatory",
-		BusinessName: bizName,
-		GST:          gst,
-		City:         city,
-		Role:         role,
-		Verified:     true,
-		IsVerified:   true,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
+	if foundUser.Password != "" && req.Password != foundUser.Password {
+		response.Error(w, http.StatusUnauthorized, "Invalid email or password credentials")
+		return
 	}
 
-	t, _ := token.GenerateToken(u.ID, u.Email, u.Role, u.OrganizationID)
+	if req.Role == "admin" && foundUser.Role != domain.RoleAdmin {
+		response.Error(w, http.StatusForbidden, "Access Denied: This account does not possess administrative privileges")
+		return
+	}
+
+	t, err := token.GenerateToken(foundUser.ID, foundUser.Email, foundUser.Role, foundUser.OrganizationID)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "Failed to generate session token")
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"token": t,
-		"user":  u,
+		"user":  foundUser,
 	}, "Login successful")
 }
 
@@ -116,6 +98,11 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 	if req.Email == "" || req.BusinessName == "" {
 		response.Error(w, http.StatusBadRequest, "Email and Business Name are required")
+		return
+	}
+
+	if req.Role == domain.RoleAdmin {
+		response.Error(w, http.StatusForbidden, "Public self-registration for administrator role is forbidden")
 		return
 	}
 
