@@ -74,6 +74,10 @@ func main() {
 
 	h := handler.NewHandler(repository.DB)
 
+	// Top-level aliases for direct compliance with integration specs
+	r.Post("/api/create-order", h.CreateOrder)
+	r.Post("/api/verify-payment", h.VerifyPayment)
+
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -138,6 +142,12 @@ func main() {
 		r.Get("/admin/finance", h.GetAdminFinance)
 		r.Post("/admin/kyc/{userId}/verify", h.VerifyAdminKYC)
 		r.Post("/admin/settlements/{id}/payout", h.ProcessAdminSettlement)
+		// Razorpay integration
+		r.Post("/create-order", h.CreateOrder)
+		r.Post("/verify-payment", h.VerifyPayment)
+
+		// GST lookup endpoint
+		r.Post("/gst/lookup", h.GSTLookup)
 	})
 
 	port := os.Getenv("PORT")
