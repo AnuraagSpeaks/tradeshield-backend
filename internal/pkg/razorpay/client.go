@@ -36,9 +36,9 @@ func CreateOrder(req OrderRequest) (*OrderResponse, error) {
 	keyID := os.Getenv("RAZORPAY_KEY_ID")
 	keySecret := os.Getenv("RAZORPAY_KEY_SECRET")
 
-	// Built-in fallback to test keys so orders never fail even if hosting env vars are omitted
+	// Built-in fallback to live key ID so orders use production gateway
 	if keyID == "" {
-		keyID = "rzp_test_Tsa2ayJfSJsAw3"
+		keyID = "rzp_live_TySmqq7P6ZyM46"
 	}
 	if keySecret == "" {
 		keySecret = "vpK9sEBnK3I588zP0PRfIj3T"
