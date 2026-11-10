@@ -36,12 +36,8 @@ func CreateOrder(req OrderRequest) (*OrderResponse, error) {
 	keyID := os.Getenv("RAZORPAY_KEY_ID")
 	keySecret := os.Getenv("RAZORPAY_KEY_SECRET")
 
-	// Built-in fallback to live key ID so orders use production gateway
-	if keyID == "" {
-		keyID = "rzp_live_TySmqq7P6ZyM46"
-	}
-	if keySecret == "" {
-		keySecret = "vpK9sEBnK3I588zP0PRfIj3T"
+	if keyID == "" || keySecret == "" {
+		return nil, fmt.Errorf("razorpay gateway credentials missing: please configure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in environment")
 	}
 
 	bodyBytes, err := json.Marshal(req)
@@ -96,7 +92,7 @@ func CreateOrder(req OrderRequest) (*OrderResponse, error) {
 func VerifySignature(orderID, paymentID, signature string) (bool, error) {
 	keySecret := os.Getenv("RAZORPAY_KEY_SECRET")
 	if keySecret == "" {
-		keySecret = "vpK9sEBnK3I588zP0PRfIj3T"
+		return false, fmt.Errorf("razorpay secret missing: please configure RAZORPAY_KEY_SECRET in environment")
 	}
 
 	payload := fmt.Sprintf("%s|%s", orderID, paymentID)
