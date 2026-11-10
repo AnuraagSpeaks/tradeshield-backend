@@ -135,6 +135,7 @@ func main() {
 		// 9. Live Verification APIs
 		r.Post("/mock/penny-drop", h.MockPennyDrop)
 		r.Get("/mock/gst-verify/{gstin}", h.MockGSTVerify)
+		r.Get("/suppliers", h.ListAdminSuppliers)
 
 		// 10. Admin Executive & Owner Management APIs
 		r.Get("/admin/stats", h.GetAdminStats)
