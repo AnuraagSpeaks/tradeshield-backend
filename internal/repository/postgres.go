@@ -235,7 +235,11 @@ func (p *PostgresStore) SaveUser(u domain.User) error {
 			data = EXCLUDED.data,
 			updated_at = EXCLUDED.updated_at;
 	`
-	_, err := p.db.Exec(query, u.ID, u.Email, u.Password, u.FullName, u.BusinessName, u.GST, u.Mobile, u.City, u.Role, u.Verified, string(dataBytes), u.CreatedAt, u.UpdatedAt)
+	pwd := u.PasswordHash
+	if pwd == "" {
+		pwd = u.Password
+	}
+	_, err := p.db.Exec(query, u.ID, u.Email, pwd, u.FullName, u.BusinessName, u.GST, u.Mobile, u.City, u.Role, u.Verified, string(dataBytes), u.CreatedAt, u.UpdatedAt)
 	return err
 }
 
@@ -413,6 +417,7 @@ func (p *PostgresStore) LoadAllIntoStore(s *Store) error {
 			var u domain.User
 			if err := rows.Scan(&u.ID, &u.Email, &u.Password, &u.FullName, &u.BusinessName, &u.GST, &u.Mobile, &u.City, &u.Role, &u.Verified, &u.CreatedAt, &u.UpdatedAt); err == nil {
 				u.IsVerified = u.Verified
+				u.PasswordHash = u.Password
 				s.Users[u.ID] = u
 			}
 		}

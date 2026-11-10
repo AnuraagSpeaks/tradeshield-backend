@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -839,6 +840,75 @@ func (s *Store) GetEscrowSummary() domain.EscrowVaultSummary {
 	}
 }
 
+func (s *Store) updateLedgerAccountBalance(accNameOrID string, isDebit bool, amount float64) {
+	var targetKey string
+	var acct domain.LedgerAccount
+	found := false
+
+	// Check direct key match
+	if a, ok := s.LedgerAccts[accNameOrID]; ok {
+		targetKey = accNameOrID
+		acct = a
+		found = true
+	} else {
+		// Check by account name
+		for k, a := range s.LedgerAccts {
+			if strings.EqualFold(a.Name, accNameOrID) || strings.EqualFold(k, accNameOrID) {
+				targetKey = k
+				acct = a
+				found = true
+				break
+			}
+		}
+	}
+
+	if !found {
+		targetKey = strings.ToLower(strings.ReplaceAll(accNameOrID, " ", "_"))
+		acctType := "LIABILITY"
+		upper := strings.ToUpper(accNameOrID)
+		if strings.Contains(upper, "VAULT") || strings.Contains(upper, "BANK") || strings.Contains(upper, "RECEIVABLE") || strings.Contains(upper, "ASSET") {
+			acctType = "ASSET"
+		} else if strings.Contains(upper, "FEE") || strings.Contains(upper, "REVENUE") {
+			acctType = "REVENUE"
+		} else if strings.Contains(upper, "EXPENSE") {
+			acctType = "EXPENSE"
+		}
+		acct = domain.LedgerAccount{
+			ID:        targetKey,
+			Name:      accNameOrID,
+			Type:      acctType,
+			Balance:   0,
+			CreatedAt: time.Now(),
+		}
+	}
+
+	// Double-entry accounting balance updates:
+	// Asset / Expense: Debit increases (+), Credit decreases (-)
+	// Liability / Equity / Revenue: Credit increases (+), Debit decreases (-)
+	switch acct.Type {
+	case "ASSET", "EXPENSE":
+		if isDebit {
+			acct.Balance += amount
+		} else {
+			acct.Balance -= amount
+		}
+	case "LIABILITY", "EQUITY", "REVENUE":
+		if isDebit {
+			acct.Balance -= amount
+		} else {
+			acct.Balance += amount
+		}
+	default:
+		if isDebit {
+			acct.Balance += amount
+		} else {
+			acct.Balance -= amount
+		}
+	}
+
+	s.LedgerAccts[targetKey] = acct
+}
+
 func (s *Store) RecordDoubleEntry(contractID, milestoneID, ref, desc string, debitAcc, creditAcc string, amount float64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -876,6 +946,9 @@ func (s *Store) RecordDoubleEntry(contractID, milestoneID, ref, desc string, deb
 	}
 
 	s.Journals = append(s.Journals, entry)
+	s.updateLedgerAccountBalance(debitAcc, true, amount)
+	s.updateLedgerAccountBalance(creditAcc, false, amount)
+
 	if PG != nil {
 		PG.SaveJournal(entry)
 	}

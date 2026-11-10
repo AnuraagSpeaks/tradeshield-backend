@@ -345,6 +345,19 @@ func TestDoubleEntryLedgerAudit(t *testing.T) {
 	r := setupTestRouter()
 	adminToken := getTestToken("user_admin_1", "admin@payshieldx.in", "admin", "org_admin")
 
+	initialVault := repository.DB.LedgerAccts["acc_vault"].Balance
+
+	// Record a double entry deposit of 50,000 into vault
+	err := repository.DB.RecordDoubleEntry("c_test", "m_test", "TEST_DEPOSIT", "Test Deposit", "ESCROW_VAULT", "BUYER_WALLET", 50000)
+	if err != nil {
+		t.Fatalf("Failed to record double entry: %v", err)
+	}
+
+	newVault := repository.DB.LedgerAccts["acc_vault"].Balance
+	if newVault != initialVault+50000 {
+		t.Fatalf("Expected vault balance to increase by 50000 from %.2f to %.2f, got %.2f", initialVault, initialVault+50000, newVault)
+	}
+
 	reqAccts := httptest.NewRequest("GET", "/api/v1/ledger/accounts", nil)
 	reqAccts.Header.Set("Authorization", adminToken)
 	wAccts := httptest.NewRecorder()

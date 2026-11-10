@@ -1688,23 +1688,25 @@ func (h *Handler) ArbitrateDispute(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	h.store.Lock()
-	defer h.store.Unlock()
-
 	disp, ok := h.store.Disputes[id]
 	if !ok {
+		h.store.Unlock()
 		response.Error(w, http.StatusNotFound, "Dispute record not found")
 		return
 	}
 
 	if disp.Status == domain.DisputeStatusResolvedRefund || disp.Status == domain.DisputeStatusResolvedReleased {
+		h.store.Unlock()
 		response.Error(w, http.StatusBadRequest, "Dispute has already been arbitrated and settled")
 		return
 	}
 	if req.BuyerRefundShare < 0 || req.SellerReleaseShare < 0 {
+		h.store.Unlock()
 		response.Error(w, http.StatusBadRequest, "Arbitration shares cannot be negative")
 		return
 	}
 	if disp.ClaimAmount > 0 && (req.BuyerRefundShare+req.SellerReleaseShare > disp.ClaimAmount) {
+		h.store.Unlock()
 		response.Error(w, http.StatusBadRequest, fmt.Sprintf("Total arbitrated sum (₹%.2f) exceeds disputed claim amount (₹%.2f)", req.BuyerRefundShare+req.SellerReleaseShare, disp.ClaimAmount))
 		return
 	}
@@ -1721,8 +1723,45 @@ func (h *Handler) ArbitrateDispute(w http.ResponseWriter, r *http.Request) {
 		disp.Status = domain.DisputeStatusResolvedReleased
 	}
 	h.store.Disputes[id] = disp
+
+	// Update associated milestone if linked
+	if disp.MilestoneID != "" {
+		if m, ok := h.store.Milestones[disp.MilestoneID]; ok {
+			if req.Verdict == "REFUND_BUYER" {
+				m.Status = "REFUNDED"
+			} else {
+				m.Status = domain.MilestoneStatusReleased
+			}
+			h.store.Milestones[disp.MilestoneID] = m
+		}
+	}
+
+	// Update associated proposal if linked
+	if disp.ProposalID != "" {
+		if p, ok := h.store.Proposals[disp.ProposalID]; ok {
+			if req.Verdict == "REFUND_BUYER" {
+				p.Status = "REFUNDED"
+			} else {
+				p.Status = "COMPLETED"
+			}
+			h.store.Proposals[disp.ProposalID] = p
+			if repository.PG != nil {
+				repository.PG.SaveProposal(p)
+			}
+		}
+	}
+
 	if repository.PG != nil {
 		repository.PG.SaveDispute(disp)
+	}
+	h.store.Unlock()
+
+	// Post Double-Entry Ledger Transactions
+	if req.BuyerRefundShare > 0 {
+		h.store.RecordDoubleEntry(disp.ContractID, disp.MilestoneID, "DISPUTE_REFUND", fmt.Sprintf("Arbitration refund to buyer for dispute %s: ₹%.2f", disp.ID, req.BuyerRefundShare), "ESCROW_VAULT", "BUYER_WALLET", req.BuyerRefundShare)
+	}
+	if req.SellerReleaseShare > 0 {
+		h.store.RecordDoubleEntry(disp.ContractID, disp.MilestoneID, "DISPUTE_RELEASE", fmt.Sprintf("Arbitration release to supplier for dispute %s: ₹%.2f", disp.ID, req.SellerReleaseShare), "ESCROW_VAULT", "SELLER_PAYOUT", req.SellerReleaseShare)
 	}
 
 	response.JSON(w, http.StatusOK, disp, "Arbitration verdict executed and recorded")
