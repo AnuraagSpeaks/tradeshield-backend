@@ -19,6 +19,7 @@ type CreateOrderRes struct {
 	OrderID  string `json:"order_id"`
 	Amount   int    `json:"amount"`
 	Currency string `json:"currency"`
+	KeyID    string `json:"key_id,omitempty"`
 }
 
 // CreateOrder handles POST /api/v1/create-order and /api/create-order
@@ -59,10 +60,16 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	keyID := os.Getenv("RAZORPAY_KEY_ID")
+	if keyID == "" {
+		keyID = "rzp_test_Tsa2ayJfSJsAw3"
+	}
+
 	res := CreateOrderRes{
 		OrderID:  orderResp.ID,
 		Amount:   orderResp.Amount,
 		Currency: orderResp.Currency,
+		KeyID:    keyID,
 	}
 	response.JSON(w, http.StatusOK, res, "Razorpay order created successfully")
 }
