@@ -266,7 +266,12 @@ func SendProposalCreatedNotification(p domain.Proposal) {
 			recipient = "buyer@apexautocomponents.in"
 		}
 
-		proposalLink := fmt.Sprintf("http://localhost:5173/?tab=proposals&proposalId=%s", p.ID)
+		frontendBase := strings.TrimSpace(os.Getenv("FRONTEND_URL"))
+		if frontendBase == "" {
+			frontendBase = "https://payshieldx.in"
+		}
+		frontendBase = strings.TrimRight(frontendBase, "/")
+		proposalLink := fmt.Sprintf("%s/dashboard?tab=proposals&proposalId=%s", frontendBase, p.ID)
 		subject := fmt.Sprintf("Proposal (%s) for PayShieldX Services", p.ProposalNumber)
 		buyerName := p.BuyerSignatory
 		if buyerName == "" {
@@ -350,7 +355,7 @@ func SendProposalCreatedNotification(p domain.Proposal) {
       <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 16px; font-size: 12px; color: #475569;">
         <div style="font-weight: 700; color: #0f172a; margin-bottom: 4px;">Happy to Help</div>
         <div>Email: <a href="mailto:support@payshieldx.in" style="color: #0284c7;">support@payshieldx.in</a></div>
-        <div>Call Us: <strong>+91 8920726073 / 1800-PAY-SHIELD</strong></div>
+        <div>Call Us: <strong>+91 8920726073</strong></div>
       </div>
     </div>
 
