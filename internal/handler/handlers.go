@@ -851,9 +851,27 @@ func (h *Handler) GetProposalPDFHTML(w http.ResponseWriter, r *http.Request) {
     </table>
 
     <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px;">
-      <div class="qr-box">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=https://app.payshieldx.in/proposal/%s" width="95" height="95" alt="QR Code" style="display: block; margin: 0 auto 6px auto;">
-        <strong>Scan To Verify / Pay</strong>
+      <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 12px 16px; font-size: 11px; min-width: 260px; line-height: 1.5;">
+        <div style="font-weight: bold; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 8px;">
+          🏛️ NEFT / RTGS / IMPS
+        </div>
+        <div style="font-weight: bold; color: #1e293b; margin-bottom: 6px; font-size: 11px;">PayShieldX Bank Details</div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+          <span style="color: #64748b;">Account Name :</span>
+          <span style="font-weight: bold; font-family: monospace;">S S ENTERPRISE</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+          <span style="color: #64748b;">Account Number :</span>
+          <span style="font-weight: bold; color: #2563eb; font-family: monospace;">8188376210</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+          <span style="color: #64748b;">IFSC :</span>
+          <span style="font-weight: bold; font-family: monospace;">IDIB000M702</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: #64748b;">Bank Name :</span>
+          <span style="font-weight: bold;">Indian Bank</span>
+        </div>
       </div>
 
       <table class="summary-table">
@@ -882,7 +900,7 @@ func (h *Handler) GetProposalPDFHTML(w http.ResponseWriter, r *http.Request) {
 
     <div style="margin-top: 36px; padding-top: 20px; border-top: 1px dashed #cbd5e1; font-size: 11px; color: #64748b; line-height: 1.6;">
       <strong>Terms & Conditions:</strong><br>
-      1. Funds deposited for this trade deal are held in an RBI compliant ICICI Bank Escrow Nodal Account.<br>
+      1. Funds deposited for this trade deal are held in an RBI compliant Indian Bank Escrow Nodal Account.<br>
       2. Payouts to supplier are released strictly against verified milestones (Advance QC -> Dispatch LR -> Warehouse Delivery).<br>
       3. In the event of a quality dispute, PayShield Admin provides binding settlement within 7 business days.
     </div>
@@ -906,7 +924,6 @@ func (h *Handler) GetProposalPDFHTML(w http.ResponseWriter, r *http.Request) {
 		html.EscapeString(p.MilestonesSummary),
 		html.EscapeString(p.DeliveryTimeline),
 		p.BaseAmount,
-		p.ID,
 		p.BaseAmount,
 		p.DiscountPercent,
 		p.DiscountAmount,
