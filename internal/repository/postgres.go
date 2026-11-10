@@ -239,6 +239,21 @@ func (p *PostgresStore) SaveUser(u domain.User) error {
 	if pwd == "" {
 		pwd = u.Password
 	}
+	if pwd == "" {
+		query = `
+			INSERT INTO users (id, email, password, full_name, business_name, gst, mobile, city, role, verified, data, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+			ON CONFLICT (id) DO UPDATE SET
+				email = EXCLUDED.email,
+				business_name = EXCLUDED.business_name,
+				gst = EXCLUDED.gst,
+				mobile = EXCLUDED.mobile,
+				city = EXCLUDED.city,
+				role = EXCLUDED.role,
+				data = EXCLUDED.data,
+				updated_at = EXCLUDED.updated_at;
+		`
+	}
 	_, err := p.db.Exec(query, u.ID, u.Email, pwd, u.FullName, u.BusinessName, u.GST, u.Mobile, u.City, u.Role, u.Verified, string(dataBytes), u.CreatedAt, u.UpdatedAt)
 	return err
 }
@@ -417,7 +432,15 @@ func (p *PostgresStore) LoadAllIntoStore(s *Store) error {
 			var u domain.User
 			if err := rows.Scan(&u.ID, &u.Email, &u.Password, &u.FullName, &u.BusinessName, &u.GST, &u.Mobile, &u.City, &u.Role, &u.Verified, &u.CreatedAt, &u.UpdatedAt); err == nil {
 				u.IsVerified = u.Verified
-				u.PasswordHash = u.Password
+				if u.Password != "" {
+					u.PasswordHash = u.Password
+				} else if existing, ok := s.Users[u.ID]; ok && (existing.PasswordHash != "" || existing.Password != "") {
+					u.PasswordHash = existing.PasswordHash
+					if u.PasswordHash == "" {
+						u.PasswordHash = existing.Password
+					}
+					u.Password = u.PasswordHash
+				}
 				s.Users[u.ID] = u
 			}
 		}
