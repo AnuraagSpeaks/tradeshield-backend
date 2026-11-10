@@ -57,7 +57,7 @@ type User struct {
 	ID             string    `json:"id"`
 	Email          string    `json:"email"`
 	PasswordHash   string    `json:"-"`
-	Password       string    `json:"password,omitempty"`
+	Password       string    `json:"-"` // Never expose in JSON responses
 	FullName       string    `json:"full_name"`
 	ContactPerson  string    `json:"contact_person,omitempty"`
 	BusinessName   string    `json:"business_name"`
@@ -293,6 +293,7 @@ type EmailOTP struct {
 	OTP       string    `json:"otp"`
 	Purpose   string    `json:"purpose"`
 	ExpiresAt time.Time `json:"expires_at"`
+	Attempts  int       `json:"attempts"`
 }
 
 type KYCDocument struct {

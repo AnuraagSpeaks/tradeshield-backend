@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"html"
 	"net/http"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -13,6 +12,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"tradeshield-backend/internal/domain"
+	"tradeshield-backend/internal/middleware"
+	"tradeshield-backend/internal/pkg/crypto"
 	"tradeshield-backend/internal/pkg/mailer"
 	"tradeshield-backend/internal/pkg/response"
 	"tradeshield-backend/internal/pkg/token"
@@ -44,12 +45,17 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.store.RLock()
-	defer h.store.RUnlock()
+	h.store.Lock()
+	defer h.store.Unlock()
 
 	reqEmail := strings.ToLower(strings.TrimSpace(req.Email))
 	if reqEmail == "" || !strings.Contains(reqEmail, "@") {
 		response.Error(w, http.StatusBadRequest, "A valid email address containing '@' is required")
+		return
+	}
+
+	if strings.TrimSpace(req.Password) == "" {
+		response.Error(w, http.StatusBadRequest, "Password credentials are required")
 		return
 	}
 
@@ -67,9 +73,26 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if foundUser.Password != "" && req.Password != foundUser.Password {
+	hashToCheck := foundUser.PasswordHash
+	if hashToCheck == "" {
+		hashToCheck = foundUser.Password
+	}
+
+	if !crypto.CheckPasswordHash(req.Password, hashToCheck) {
 		response.Error(w, http.StatusUnauthorized, "Invalid email or password credentials")
 		return
+	}
+
+	// Auto-upgrade legacy plaintext password to secure bcrypt hash
+	if !strings.HasPrefix(foundUser.PasswordHash, "$2a$") && !strings.HasPrefix(foundUser.Password, "$2a$") {
+		if newH, err := crypto.HashPassword(req.Password); err == nil {
+			foundUser.PasswordHash = newH
+			foundUser.Password = newH
+			h.store.Users[foundUser.ID] = *foundUser
+			if repository.PG != nil {
+				_ = repository.PG.SaveUser(*foundUser)
+			}
+		}
 	}
 
 	if req.Role == "admin" && foundUser.Role != domain.RoleAdmin {
@@ -96,7 +119,8 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Email == "" || req.BusinessName == "" {
+	cleanEmail := strings.ToLower(strings.TrimSpace(req.Email))
+	if cleanEmail == "" || req.BusinessName == "" {
 		response.Error(w, http.StatusBadRequest, "Email and Business Name are required")
 		return
 	}
@@ -109,17 +133,36 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	h.store.Lock()
 	defer h.store.Unlock()
 
+	// Check for duplicate email
+	for _, u := range h.store.Users {
+		if strings.ToLower(strings.TrimSpace(u.Email)) == cleanEmail {
+			response.Error(w, http.StatusConflict, "An account with this email address already exists. Please sign in.")
+			return
+		}
+	}
+
 	userID := "user_" + uuid.New().String()[:8]
 	req.ID = userID
+	req.Email = cleanEmail
 	if req.FullName == "" && req.ContactPerson != "" {
 		req.FullName = req.ContactPerson
 	}
 	if req.FullName == "" {
 		req.FullName = req.BusinessName
 	}
-	if req.Password == "" {
-		req.Password = "Shield@Pass2026"
+	
+	passToHash := req.Password
+	if strings.TrimSpace(passToHash) == "" {
+		passToHash = "Shield@Pass2026"
 	}
+	hashedPass, err := crypto.HashPassword(passToHash)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "Failed to secure password credentials")
+		return
+	}
+	req.PasswordHash = hashedPass
+	req.Password = hashedPass
+
 	req.Verified = true
 	req.IsVerified = true
 	req.CreatedAt = time.Now()
@@ -160,8 +203,8 @@ func (h *Handler) SendOTP(w http.ResponseWriter, r *http.Request) {
 		purpose = "register"
 	}
 
-	// Generate 6-digit cryptographic random OTP
-	otpCode := fmt.Sprintf("%06d", (time.Now().UnixNano()%900000)+100000)
+	// Generate 6-digit cryptographically secure OTP
+	otpCode := crypto.GenerateSecureOTP()
 
 	h.store.Lock()
 	key := fmt.Sprintf("%s:%s", cleanEmail, purpose)
@@ -170,6 +213,7 @@ func (h *Handler) SendOTP(w http.ResponseWriter, r *http.Request) {
 		OTP:       otpCode,
 		Purpose:   purpose,
 		ExpiresAt: time.Now().Add(10 * time.Minute),
+		Attempts:  0,
 	}
 	h.store.Unlock()
 
@@ -201,19 +245,11 @@ func (h *Handler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
 		purpose = "register"
 	}
 
-	// Developer / Testing bypass code: "849201" or "123456"
-	if cleanOTP == "849201" || cleanOTP == "123456" {
-		response.JSON(w, http.StatusOK, map[string]interface{}{
-			"verified": true,
-			"email":    cleanEmail,
-		}, "Email verified successfully (Bypass Code)")
-		return
-	}
+	h.store.Lock()
+	defer h.store.Unlock()
 
-	h.store.RLock()
 	key := fmt.Sprintf("%s:%s", cleanEmail, purpose)
 	otpRec, ok := h.store.OTPs[key]
-	h.store.RUnlock()
 
 	if !ok {
 		response.Error(w, http.StatusBadRequest, "No OTP requested for this email or OTP expired. Please request a new code.")
@@ -221,19 +257,26 @@ func (h *Handler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if time.Now().After(otpRec.ExpiresAt) {
+		delete(h.store.OTPs, key)
 		response.Error(w, http.StatusBadRequest, "Verification code has expired. Please request a new code.")
 		return
 	}
 
+	if otpRec.Attempts >= 5 {
+		delete(h.store.OTPs, key)
+		response.Error(w, http.StatusTooManyRequests, "Too many failed verification attempts. Please request a new code.")
+		return
+	}
+
 	if otpRec.OTP != cleanOTP {
+		otpRec.Attempts++
+		h.store.OTPs[key] = otpRec
 		response.Error(w, http.StatusBadRequest, "Incorrect verification code. Please check your inbox.")
 		return
 	}
 
-	// Remove verified OTP
-	h.store.Lock()
+	// Remove verified OTP to prevent replay attack
 	delete(h.store.OTPs, key)
-	h.store.Unlock()
 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"verified": true,
@@ -257,7 +300,7 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	cleanEmail := strings.ToLower(strings.TrimSpace(req.Email))
 	cleanOTP := strings.TrimSpace(req.OTP)
 
-	if req.NewPassword == "" {
+	if strings.TrimSpace(req.NewPassword) == "" {
 		response.Error(w, http.StatusBadRequest, "New password cannot be empty")
 		return
 	}
@@ -268,26 +311,44 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	defer h.store.Unlock()
 
 	otpRec, ok := h.store.OTPs[key]
-	isBypass := (cleanOTP == "849201" || cleanOTP == "123456") && os.Getenv("ENV") == "test" && cleanEmail != "admin@payshieldx.in"
-
-	if !isBypass {
-		if !ok || time.Now().After(otpRec.ExpiresAt) || otpRec.OTP != cleanOTP {
-			response.Error(w, http.StatusBadRequest, "Invalid or expired reset code. Please request a new code.")
-			return
-		}
+	if !ok || time.Now().After(otpRec.ExpiresAt) {
 		delete(h.store.OTPs, key)
+		response.Error(w, http.StatusBadRequest, "Invalid or expired reset code. Please request a new code.")
+		return
+	}
+
+	if otpRec.Attempts >= 5 {
+		delete(h.store.OTPs, key)
+		response.Error(w, http.StatusTooManyRequests, "Too many failed attempts. Please request a new code.")
+		return
+	}
+
+	if otpRec.OTP != cleanOTP {
+		otpRec.Attempts++
+		h.store.OTPs[key] = otpRec
+		response.Error(w, http.StatusBadRequest, "Invalid reset code. Please check your inbox.")
+		return
+	}
+
+	delete(h.store.OTPs, key)
+
+	hashedPassword, err := crypto.HashPassword(req.NewPassword)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "Failed to hash new password")
+		return
 	}
 
 	// Find and update user password
 	var updatedUser *domain.User
 	for id, u := range h.store.Users {
 		if strings.ToLower(u.Email) == cleanEmail {
-			u.Password = req.NewPassword
+			u.PasswordHash = hashedPassword
+			u.Password = hashedPassword
 			u.UpdatedAt = time.Now()
 			h.store.Users[id] = u
 			updatedUser = &u
 			if repository.PG != nil {
-				repository.PG.SaveUser(u)
+				_ = repository.PG.SaveUser(u)
 			}
 			break
 		}
@@ -298,7 +359,8 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		u := domain.User{
 			ID:           "user_" + uuid.New().String()[:8],
 			Email:        cleanEmail,
-			Password:     req.NewPassword,
+			PasswordHash: hashedPassword,
+			Password:     hashedPassword,
 			FullName:     "Authorized Signatory",
 			BusinessName: strings.ToUpper(strings.Split(cleanEmail, "@")[0]) + " ENTERPRISES",
 			GST:          "27AAACA1234A1Z5",
@@ -333,6 +395,10 @@ func (h *Handler) ListDirectory(w http.ResponseWriter, r *http.Request) {
 
 	results := make([]domain.User, 0)
 	for _, u := range h.store.Users {
+		// Do not expose administrative accounts in public directory
+		if u.Role == domain.RoleAdmin {
+			continue
+		}
 		if roleQuery != "" && u.Role != roleQuery {
 			continue
 		}
@@ -603,6 +669,21 @@ func (h *Handler) ApproveProposal(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	var req ApproveProposalReq
 	json.NewDecoder(r.Body).Decode(&req)
+
+	claims := middleware.GetUserClaims(r.Context())
+	if claims != nil && claims.Role != "admin" {
+		if req.Role == "supplier" {
+			if claims.Role != "supplier" {
+				response.Error(w, http.StatusForbidden, "Only authorized suppliers can approve supplier proposal terms")
+				return
+			}
+		} else {
+			if claims.Role != "buyer" {
+				response.Error(w, http.StatusForbidden, "Only the designated buyer or administrator can approve and fund escrow")
+				return
+			}
+		}
+	}
 
 	h.store.Lock()
 	p, ok := h.store.Proposals[id]
@@ -1378,6 +1459,12 @@ func (h *Handler) SubmitMilestoneProof(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ApproveAndReleaseMilestone(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
+	claims := middleware.GetUserClaims(r.Context())
+	if claims != nil && claims.Role != "admin" && claims.Role != "buyer" {
+		response.Error(w, http.StatusForbidden, "Only the purchasing buyer or administrator can release milestone escrow funds")
+		return
+	}
+
 	h.store.Lock()
 	m, ok := h.store.Milestones[id]
 	if !ok {
@@ -1590,6 +1677,12 @@ type ArbitrateReq struct {
 }
 
 func (h *Handler) ArbitrateDispute(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.GetUserClaims(r.Context())
+	if claims != nil && claims.Role != "admin" {
+		response.Error(w, http.StatusForbidden, "Access Denied: Only certified arbitration court administrators can issue verdicts")
+		return
+	}
+
 	id := chi.URLParam(r, "id")
 	var req ArbitrateReq
 	json.NewDecoder(r.Body).Decode(&req)
@@ -1611,7 +1704,7 @@ func (h *Handler) ArbitrateDispute(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, "Arbitration shares cannot be negative")
 		return
 	}
-	if disp.ClaimAmount > 0 && (req.BuyerRefundShare+req.SellerReleaseShare > disp.ClaimAmount*1.05) {
+	if disp.ClaimAmount > 0 && (req.BuyerRefundShare+req.SellerReleaseShare > disp.ClaimAmount) {
 		response.Error(w, http.StatusBadRequest, fmt.Sprintf("Total arbitrated sum (₹%.2f) exceeds disputed claim amount (₹%.2f)", req.BuyerRefundShare+req.SellerReleaseShare, disp.ClaimAmount))
 		return
 	}

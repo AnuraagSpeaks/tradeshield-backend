@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/cors"
 
 	"tradeshield-backend/internal/handler"
+	"tradeshield-backend/internal/middleware"
 	"tradeshield-backend/internal/pkg/mailer"
 	"tradeshield-backend/internal/repository"
 )
@@ -56,7 +57,14 @@ func main() {
 	r.Use(chiMiddleware.Timeout(60 * time.Second))
 
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "*"},
+		AllowedOrigins: []string{
+			"https://payshieldx.in",
+			"https://www.payshieldx.in",
+			"https://tradeshield-frontend.vercel.app",
+			"http://localhost:5173",
+			"http://localhost:3000",
+			"http://127.0.0.1:5173",
+		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "Idempotency-Key"},
 		ExposedHeaders:   []string{"Link"},
@@ -80,12 +88,13 @@ func main() {
 	r.Get("/documents/*", h.GetDocumentPreview)
 
 	r.Route("/api/v1", func(r chi.Router) {
+		// Public Endpoints (no auth required)
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(`{"status":"ok","service":"PayShieldX Trade Protection API","version":"2.4.2-verified-production"}`))
 		})
 
-		// 1. Auth & Directory
+		// 1. Auth & Public Directory
 		r.Post("/auth/login", h.Login)
 		r.Post("/auth/register", h.Register)
 		r.Post("/auth/send-otp", h.SendOTP)
@@ -93,66 +102,72 @@ func main() {
 		r.Post("/auth/reset-password", h.ResetPassword)
 		r.Get("/directory", h.ListDirectory)
 
-		// 2. Escrow Metrics
+		// 2. Escrow Metrics & Directory Lookups
 		r.Get("/escrow/summary", h.GetSummary)
-
-		// 3. Proposals & Dual-Approval System
-		r.Get("/proposals", h.ListProposals)
-		r.Post("/proposals", h.CreateProposal)
-		r.Get("/proposals/{id}", h.GetProposal)
-		r.Get("/proposals/{id}/pdf", h.GetProposalPDFHTML)
-		r.Post("/proposals/{id}/approve", h.ApproveProposal)
-		r.Post("/proposals/{id}/request-modification", h.RequestModification)
-		r.Post("/proposals/{id}/ship", h.ShipProposal)
-		r.Post("/proposals/{id}/confirm-delivery", h.ConfirmDeliveryProposal)
-
-		// 4. Milestone Escrow Contracts (High-Volume)
-		r.Get("/contracts", h.ListContracts)
-		r.Post("/contracts", h.CreateContract)
-		r.Get("/contracts/{id}", h.GetContract)
-		r.Post("/milestones/{id}/submit-proof", h.SubmitMilestoneProof)
-		r.Post("/milestones/{id}/approve-release", h.ApproveAndReleaseMilestone)
-
-		// 5. Connections & Partner Requests
-		r.Get("/connections", h.ListConnections)
-		r.Get("/connections/requests", h.ListConnectionRequests)
-		r.Post("/connections/requests", h.SendConnectionRequest)
-		r.Post("/connections/requests/{id}/accept", h.AcceptConnectionRequest)
-
-		// 6. Disputes & Arbitration Court
-		r.Get("/disputes", h.ListDisputes)
-		r.Post("/disputes", h.RaiseDispute)
-		r.Post("/disputes/{id}/arbitrate", h.ArbitrateDispute)
-
-		// 7. Double-Entry Ledger
-		r.Get("/ledger/accounts", h.ListLedgerAccounts)
-		r.Get("/ledger/journals", h.ListLedgerJournals)
-
-		// 8. Support Ticket Desk
-		r.Get("/support/tickets", h.ListSupportTickets)
-		r.Post("/support/tickets", h.SubmitSupportTicket)
-
-		// 9. Live Verification APIs
-		r.Post("/mock/penny-drop", h.MockPennyDrop)
-		r.Get("/mock/gst-verify/{gstin}", h.MockGSTVerify)
 		r.Get("/suppliers", h.ListAdminSuppliers)
 
-		// 10. Admin Executive & Owner Management APIs
-		r.Get("/admin/stats", h.GetAdminStats)
-		r.Get("/admin/buyers", h.ListAdminBuyers)
-		r.Get("/admin/suppliers", h.ListAdminSuppliers)
-		r.Get("/admin/finance", h.GetAdminFinance)
-		r.Post("/admin/kyc/{userId}/verify", h.VerifyAdminKYC)
-		r.Post("/admin/settlements/{id}/payout", h.ProcessAdminSettlement)
-		// Razorpay integration
+		// 3. Proposal Public View & PDF Render
+		r.Get("/proposals/{id}", h.GetProposal)
+		r.Get("/proposals/{id}/pdf", h.GetProposalPDFHTML)
+
+		// 4. Integrations & Documents
+		r.Post("/mock/penny-drop", h.MockPennyDrop)
+		r.Get("/mock/gst-verify/{gstin}", h.MockGSTVerify)
 		r.Post("/create-order", h.CreateOrder)
 		r.Post("/verify-payment", h.VerifyPayment)
-
-		// GST lookup endpoint
 		r.Post("/gst/lookup", h.GSTLookup)
-
-		// Document vault preview endpoint
 		r.Get("/documents/*", h.GetDocumentPreview)
+
+		// Authenticated Routes (Requires valid JWT Bearer Token)
+		r.Group(func(auth chi.Router) {
+			auth.Use(middleware.AuthMiddleware)
+
+			// Proposals Management
+			auth.Get("/proposals", h.ListProposals)
+			auth.Post("/proposals", h.CreateProposal)
+			auth.Post("/proposals/{id}/approve", h.ApproveProposal)
+			auth.Post("/proposals/{id}/request-modification", h.RequestModification)
+			auth.Post("/proposals/{id}/ship", h.ShipProposal)
+			auth.Post("/proposals/{id}/confirm-delivery", h.ConfirmDeliveryProposal)
+
+			// Milestone Escrow Contracts
+			auth.Get("/contracts", h.ListContracts)
+			auth.Post("/contracts", h.CreateContract)
+			auth.Get("/contracts/{id}", h.GetContract)
+			auth.Post("/milestones/{id}/submit-proof", h.SubmitMilestoneProof)
+			auth.Post("/milestones/{id}/approve-release", h.ApproveAndReleaseMilestone)
+
+			// Connections & Networking
+			auth.Get("/connections", h.ListConnections)
+			auth.Get("/connections/requests", h.ListConnectionRequests)
+			auth.Post("/connections/requests", h.SendConnectionRequest)
+			auth.Post("/connections/requests/{id}/accept", h.AcceptConnectionRequest)
+
+			// Disputes (User raising & listing)
+			auth.Get("/disputes", h.ListDisputes)
+			auth.Post("/disputes", h.RaiseDispute)
+
+			// Support Tickets
+			auth.Get("/support/tickets", h.ListSupportTickets)
+			auth.Post("/support/tickets", h.SubmitSupportTicket)
+
+			// Admin Restricted Routes (Requires role: "admin")
+			auth.Group(func(admin chi.Router) {
+				admin.Use(middleware.RequireRole("admin"))
+
+				admin.Get("/admin/stats", h.GetAdminStats)
+				admin.Get("/admin/buyers", h.ListAdminBuyers)
+				admin.Get("/admin/suppliers", h.ListAdminSuppliers)
+				admin.Get("/admin/finance", h.GetAdminFinance)
+				admin.Post("/admin/kyc/{userId}/verify", h.VerifyAdminKYC)
+				admin.Post("/admin/settlements/{id}/payout", h.ProcessAdminSettlement)
+
+				admin.Get("/ledger/accounts", h.ListLedgerAccounts)
+				admin.Get("/ledger/journals", h.ListLedgerJournals)
+
+				admin.Post("/disputes/{id}/arbitrate", h.ArbitrateDispute)
+			})
+		})
 	})
 
 	port := os.Getenv("PORT")

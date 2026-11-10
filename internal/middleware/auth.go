@@ -44,3 +44,28 @@ func GetUserClaims(ctx context.Context) *token.Claims {
 	}
 	return nil
 }
+
+// RequireRole enforces that the authenticated user has one of the allowed roles (e.g. "admin", "buyer", "supplier")
+func RequireRole(roles ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims := GetUserClaims(r.Context())
+			if claims == nil {
+				response.Error(w, http.StatusUnauthorized, "Authentication credentials required")
+				return
+			}
+			roleMatch := false
+			for _, allowed := range roles {
+				if strings.EqualFold(claims.Role, allowed) {
+					roleMatch = true
+					break
+				}
+			}
+			if !roleMatch {
+				response.Error(w, http.StatusForbidden, "Access Denied: Your account role does not have permission to perform this action")
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}

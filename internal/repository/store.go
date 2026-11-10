@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"tradeshield-backend/internal/domain"
+	"tradeshield-backend/internal/pkg/crypto"
 )
 
 type Store struct {
@@ -171,10 +172,16 @@ func (s *Store) SeedData() {
 		CreatedAt:    time.Now().Add(-40 * 24 * time.Hour),
 		UpdatedAt:    time.Now(),
 	}
+	hAdmin, _ := crypto.HashPassword("Admin@Shield2026")
+	hApex, _ := crypto.HashPassword("Apex@Shield2026")
+	hBharat, _ := crypto.HashPassword("Bharat@Shield2026")
+	hDefault, _ := crypto.HashPassword("password123")
+
 	uAdmin := domain.User{
 		ID:           "user_admin",
 		Email:        "admin@payshieldx.in",
-		Password:     "Admin@Shield2026",
+		PasswordHash: hAdmin,
+		Password:     hAdmin,
 		FullName:     "System Admin",
 		BusinessName: "PayShield Admin",
 		GST:          "07AAACT0001A1Z9",
@@ -190,7 +197,8 @@ func (s *Store) SeedData() {
 	uApexBuyer := domain.User{
 		ID:           "user_buyer_apex",
 		Email:        "procurement@apexauto.in",
-		Password:     "Apex@Shield2026",
+		PasswordHash: hApex,
+		Password:     hApex,
 		FullName:     "Vikram Malhotra",
 		BusinessName: "Apex Auto Components Pvt Ltd",
 		GST:          "27AAACA1234A1Z5",
@@ -206,7 +214,8 @@ func (s *Store) SeedData() {
 	uBharatSupplier := domain.User{
 		ID:           "user_supplier_bharat",
 		Email:        "sales@bharatcastings.com",
-		Password:     "Bharat@Shield2026",
+		PasswordHash: hBharat,
+		Password:     hBharat,
 		FullName:     "Rajesh Singhania",
 		BusinessName: "Bharat Precision Castings Ltd",
 		GST:          "24AABCB5678B1Z2",
@@ -222,7 +231,8 @@ func (s *Store) SeedData() {
 	uCourtAdmin := domain.User{
 		ID:           "user_admin_court",
 		Email:        "court@payshieldx.in",
-		Password:     "Admin@Shield2026",
+		PasswordHash: hAdmin,
+		Password:     hAdmin,
 		FullName:     "System Administrator",
 		BusinessName: "PayShield Admin",
 		GST:          "07AAACT0001A1Z9",
@@ -235,6 +245,17 @@ func (s *Store) SeedData() {
 		CreatedAt:    time.Now().Add(-90 * 24 * time.Hour),
 		UpdatedAt:    time.Now(),
 	}
+
+	uBuyer1.PasswordHash = hDefault
+	uBuyer1.Password = hDefault
+	uBuyer2.PasswordHash = hDefault
+	uBuyer2.Password = hDefault
+	uBuyer3.PasswordHash = hDefault
+	uBuyer3.Password = hDefault
+	uSupplier1.PasswordHash = hDefault
+	uSupplier1.Password = hDefault
+	uSupplier2.PasswordHash = hDefault
+	uSupplier2.Password = hDefault
 
 	s.Users[uBuyer1.ID] = uBuyer1
 	s.Users[uBuyer2.ID] = uBuyer2
